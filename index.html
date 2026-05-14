@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>链接登记 + 批量购买</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            padding: 16px 12px;
+            padding-bottom: 40px;
+        }
+
+        .wrap {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .api-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        }
+
+        .api-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 15px;
+            font-weight: 600;
+            color: #222;
+            margin-bottom: 10px;
+        }
+
+        .api-title a {
+            font-size: 12px;
+            color: #1677ff;
+            text-decoration: none;
+            font-weight: 400;
+        }
+
+        .api-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .api-grid .full {
+            grid-column: 1 / -1;
+        }
+
+        .field-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .api-card input,
+        .api-card select,
+        .api-card textarea {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            background: #fff;
+        }
+
+        .api-card input,
+        .api-card select {
+            height: 40px;
+            padding: 0 9px;
+        }
+
+        .api-card textarea {
+            min-height: 72px;
+            padding: 9px;
+            resize: vertical;
+            line-height: 1.45;
+        }
+
+        .api-card input:focus,
+        .api-card select:focus,
+        .api-card textarea:focus,
+        .input-row input:focus {
+            border-color: #1677ff;
+        }
+
+        .api-help {
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #777;
+        }
+
+        .api-btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .api-btn-row button {
+            flex: 1;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .save-api-btn { background: #1677ff; }
+        .test-api-btn { background: #13a86b; }
+        .reset-api-btn { background: #6c757d; }
+        .login-api-btn { background: #13a86b; }
+        .check-login-btn { background: #1677ff; }
+        .logout-api-btn { background: #6c757d; }
+
+        .api-login-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .api-login-row button {
+            flex: 1;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        details {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        summary {
+            cursor: pointer;
+            user-select: none;
+            color: #1677ff;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .input-row input {
+            flex: 1;
+            height: 48px;
+            padding: 0 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            background: #fff;
+            outline: none;
+        }
+
+        .row-btn {
+            width: 90px;
+            height: 48px;
+            border: none;
+            border-radius: 10px;
+            background: #1677ff;
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .record-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0 25px;
+        }
+
+        .list-title {
+            font-size: 14px;
+            color: #777;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .record-item {
+            background: #fff;
+            padding: 11px 8px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #444;
+            text-align: center;
+            user-select: none;
+            margin-bottom: 8px;
+            cursor: pointer;
+            word-break: break-all;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .record-item:active {
+            transform: scale(0.98);
+            background: #f0f7ff;
+        }
+
+        .status {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .status-local { background: #f1f3f5; color: #666; }
+        .status-pending { background: #fff3cd; color: #8a6400; }
+        .status-success { background: #e9f8ef; color: #16834a; }
+        .status-fail { background: #fdecec; color: #c62828; }
+
+        .clear-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .clear-box button,
+        .batch-buy-box button {
+            flex: 1;
+            height: 48px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .refresh-btn { background: #ff9500; }
+        .clear-all-btn { background: #dc3545; }
+        .buy-ins-btn { background: #1677ff; }
+        .buy-tk-btn { background: #6f42c1; }
+
+        .batch-buy-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .project-select {
+            width: 110px;
+            height: 48px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 0 8px;
+            font-size: 15px;
+            background: #fff;
+            outline: none;
+        }
+
+        .action-status {
+            min-height: 42px;
+            margin: -6px 0 16px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #fff;
+            color: #555;
+            font-size: 13px;
+            line-height: 1.5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            word-break: break-all;
+        }
+
+        .action-status.ok {
+            background: #e9f8ef;
+            color: #16834a;
+        }
+
+        .action-status.warn {
+            background: #fff3cd;
+            color: #8a6400;
+        }
+
+        .action-status.fail {
+            background: #fdecec;
+            color: #c62828;
+        }
+
+        .modal-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-box {
+            width: 100%;
+            max-width: 360px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .modal-box input,
+        .modal-box textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            margin-bottom: 12px;
+            outline: none;
+        }
+
+        .modal-box input { height: 44px; }
+        .modal-box textarea { height: 92px; resize: none; }
+        .modal-box .small-textarea { height: 70px; font-size: 12px; color: #666; }
+
+        .modal-btn-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .modal-btn-row:last-child { margin-bottom: 0; }
+
+        .modal-btn-row button {
+            flex: 1;
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .save-btn { background: #1677ff; color: #fff; }
+        .del-btn { background: #dc3545; color: #fff; }
+        .retry-btn { background: #13a86b; color: #fff; }
+        .cancel-btn { background: #e9ecef; color: #333; }
+
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            display: none;
+            z-index: 1000;
+            max-width: 82vw;
+            text-align: center;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+    <div class="api-card">
+        <div class="api-title">
+            <span>API配置</span>
+            <a href="https://fensi.icu/user/interface" target="_blank">打开接口文档</a>
+        </div>
+
+        <div class="api-grid">
+            <div class="full">
+                <div class="field-label">接口地址</div>
+                <input type="text" id="apiUrl" placeholder="例如：http://127.0.0.1:8787/api/customer/Home/BuyIn">
+            </div>
+
+            <div>
+                <div class="field-label">接口模式</div>
+                <select id="apiMode">
+                    <option value="fensiBuy">fensi批量购买</option>
+                    <option value="custom">通用接口</option>
+                </select>
+            </div>
+
+            <div>
+                <div class="field-label">当前商品ID</div>
+                <input type="text" id="goodsId" placeholder="3633" readonly>
+            </div>
+
+            <div>
+                <div class="field-label">AppID</div>
+                <input type="text" id="appId" placeholder="开放接口里的AppID">
+            </div>
+
+            <div>
+                <div class="field-label">秘钥</div>
+                <input type="password" id="appSecret" placeholder="开放接口里的秘钥">
+            </div>
+
+            <div>
+                <div class="field-label">网站账号</div>
+                <input type="text" id="loginAccount" placeholder="fensi登录账号" autocomplete="username">
+            </div>
+
+            <div>
+                <div class="field-label">网站密码</div>
+                <input type="password" id="loginPassword" placeholder="只临时发送到本机" autocomplete="current-password">
+            </div>
+
+            <div class="api-login-row full">
+                <button class="login-api-btn" onclick="loginFensi()">登录网站</button>
+                <button class="check-login-btn" onclick="checkFensiLogin(true)">检测登录</button>
+                <button class="logout-api-btn" onclick="logoutFensi()">清除登录</button>
+            </div>
+
+            <div class="full">
+                <div class="field-label">API密钥 / Token（通用接口）</div>
+                <input type="password" id="apiKey" placeholder="通用接口需要时填写">
+            </div>
+
+            <div>
+                <div class="field-label">INS项目</div>
+                <select id="selectedInsProject" onchange="syncInsProjectTemplate(true)">
+                    <option value="ins">播放</option>
+                    <option value="insLike">点赞</option>
+                </select>
+            </div>
+
+            <div>
+                <div class="field-label">INS项目ID / tid</div>
+                <input type="text" id="insTid" placeholder="INS业务ID" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">TK项目ID / tid</div>
+                <input type="text" id="tkTid" placeholder="TK业务ID">
+            </div>
+
+            <div>
+                <div class="field-label">随机最小数量</div>
+                <input type="number" id="randomMinNum" min="1" step="1" placeholder="50" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">随机最大数量</div>
+                <input type="number" id="randomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">下单基数</div>
+                <input type="number" id="orderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">请求方式</div>
+                <select id="apiMethod">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                </select>
+            </div>
+        </div>
+
+        <details>
+            <summary>高级参数名设置</summary>
+            <div class="api-grid" style="margin-top:8px;">
+                <div>
+                    <div class="field-label">动作参数名</div>
+                    <input type="text" id="fieldAction" placeholder="act">
+                </div>
+                <div>
+                    <div class="field-label">下单动作值</div>
+                    <input type="text" id="valueAction" placeholder="add">
+                </div>
+                <div>
+                    <div class="field-label">密钥参数名</div>
+                    <input type="text" id="fieldKey" placeholder="key">
+                </div>
+                <div>
+                    <div class="field-label">项目ID参数名</div>
+                    <input type="text" id="fieldService" placeholder="tid">
+                </div>
+                <div>
+                    <div class="field-label">链接参数名</div>
+                    <input type="text" id="fieldLink" placeholder="input">
+                </div>
+                <div>
+                    <div class="field-label">数量参数名</div>
+                    <input type="text" id="fieldNum" placeholder="num">
+                </div>
+                <div>
+                    <div class="field-label">AppID参数名</div>
+                    <input type="text" id="fieldAppId" placeholder="app_id">
+                </div>
+                <div>
+                    <div class="field-label">秘钥参数名</div>
+                    <input type="text" id="fieldSecret" placeholder="app_secret">
+                </div>
+                <div>
+                    <div class="field-label">商品ID参数名</div>
+                    <input type="text" id="fieldGoodsId" placeholder="id">
+                </div>
+                <div>
+                    <div class="field-label">购买数量参数名</div>
+                    <input type="text" id="fieldBuyNumber" placeholder="buy_number">
+                </div>
+                <div>
+                    <div class="field-label">购买参数名</div>
+                    <input type="text" id="fieldBuyParams" placeholder="buy_params">
+                </div>
+                <div>
+                    <div class="field-label">链接字段名</div>
+                    <input type="text" id="buyParamKey" placeholder="作品链接">
+                </div>
+                <div class="full">
+                    <div class="field-label">附加购买参数 JSON</div>
+                    <textarea id="extraBuyParams" placeholder='例如：{"备注":"这里可补其他必填参数"}'></textarea>
+                </div>
+            </div>
+        </details>
+
+        <div class="api-btn-row">
+            <button class="save-api-btn" onclick="saveApiConfig()">保存配置</button>
+            <button class="test-api-btn" onclick="testApiConfig()">测试配置</button>
+            <button class="reset-api-btn" onclick="resetApiConfig()">重置</button>
+        </div>
+
+        <div class="api-help">
+            fensi模式需要先登录网站。选择INS项目后，项目ID和数量模板会自动切换；上面的确认按钮只保存链接，点下面的“批量购买”才会真正下单。
+        </div>
+    </div>
+
+    <div class="input-row">
+        <input type="text" id="insVal" placeholder="ins播放输入链接">
+        <button class="row-btn" onclick="saveAndSubmit('ins')">确认</button>
+    </div>
+
+    <div class="input-row">
+        <input type="text" id="tkVal" placeholder="tk输入链接/账号">
+        <button class="row-btn" onclick="saveAndSubmit('tk')">确认</button>
+    </div>
+
+    <div class="record-container">
+        <div>
+            <div class="list-title">INS记录</div>
+            <div id="insList"></div>
+        </div>
+
+        <div>
+            <div class="list-title">TK记录</div>
+            <div id="tkList"></div>
+        </div>
+    </div>
+
+    <div class="clear-box">
+        <button class="refresh-btn" onclick="manualClearOverdue()">刷新</button>
+        <button class="clear-all-btn" onclick="clearAllRecord()">全部清除</button>
+    </div>
+
+    <div class="batch-buy-box">
+        <button class="buy-ins-btn" onclick="submitBatchByType('ins')">批量购买INS</button>
+        <button class="buy-tk-btn" onclick="submitBatchByType('tk')">批量购买TK</button>
+    </div>
+
+    <div class="action-status" id="actionStatus">先设置随机数量范围，再添加链接，最后点批量购买。</div>
+</div>
+
+<div class="modal-mask" id="modalMask" onclick="maskClose(event)">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <input type="text" id="editDate" placeholder="修改日期 如：7.6">
+        <textarea id="editContent" placeholder="修改链接内容"></textarea>
+        <textarea id="editApiResult" class="small-textarea" readonly placeholder="接口返回结果"></textarea>
+
+        <div class="modal-btn-row">
+            <button class="save-btn" onclick="saveEdit()">保存修改</button>
+            <button class="retry-btn" onclick="retryCurrentItem()">重新提交</button>
+        </div>
+
+        <div class="modal-btn-row">
+            <button class="del-btn" onclick="delCurrentItem()">删除本条</button>
+            <button class="cancel-btn" onclick="closeModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast">操作成功</div>
+
+<script>
+    const SEVEN_DAY = 7 * 24 * 60 * 60 * 1000;
+    const STORAGE_KEY = 'linkRecord';
+    const API_CONFIG_KEY = 'fensiApiConfig';
+
+    const DEFAULT_API_CONFIG = {
+        apiUrl: 'http://127.0.0.1:8787/api/customer/Home/BuyIn',
+        apiMode: 'fensiBuy',
+        appId: '',
+        appSecret: '',
+        apiKey: '',
+        selectedInsProject: 'ins',
+        goodsId: '3633',
+        insTid: '3633',
+        insGoodsId: '3633',
+        insLikeGoodsId: '3400',
+        insRandomMinNum: '50',
+        insRandomMaxNum: '100',
+        insOrderBaseNum: '100',
+        insLikeRandomMinNum: '10',
+        insLikeRandomMaxNum: '100',
+        insLikeOrderBaseNum: '1',
+        tkTid: '',
+        defaultNum: '50',
+        randomMinNum: '50',
+        randomMaxNum: '100',
+        orderBaseNum: '100',
+        apiMethod: 'POST',
+        fieldAction: 'act',
+        valueAction: 'add',
+        fieldKey: 'key',
+        fieldService: 'tid',
+        fieldLink: 'input',
+        fieldNum: 'num',
+        fieldAppId: 'app_id',
+        fieldSecret: 'app_secret',
+        fieldGoodsId: 'id',
+        fieldBuyNumber: 'buy_number',
+        fieldBuyParams: 'buy_params',
+        buyParamKey: '作品链接',
+        extraBuyParams: '{}'
+    };
+
+    const PROJECTS = {
+        ins: {
+            label: 'INS观看',
+            inputId: 'insVal',
+            listId: 'insList',
+            goodsId: '3633',
+            randomMinNum: '50',
+            randomMaxNum: '100',
+            orderBaseNum: '100',
+            buyParamKey: '作品链接',
+            tidKey: 'insTid'
+        },
+        insLike: {
+            label: 'INS点赞',
+            inputId: 'insVal',
+            listId: 'insList',
+            goodsId: '3400',
+            randomMinNum: '10',
+            randomMaxNum: '100',
+            orderBaseNum: '1',
+            buyParamKey: '作品链接',
+            tidKey: ''
+        },
+        tk: {
+            label: 'TK',
+            inputId: 'tkVal',
+            listId: 'tkList',
+            goodsId: '',
+            randomMinNum: '50',
+            randomMaxNum: '100',
+            orderBaseNum: '100',
+            buyParamKey: '作品链接',
+            tidKey: 'tkTid'
+        }
+    };
+
+    let currentEditIndex = -1;
+    let currentInsProjectType = 'ins';
+
+    window.onload = function () {
+        loadApiConfigToPage();
+        currentInsProjectType = getSelectedInsProjectType();
+        syncInsProjectTemplate(false);
+        clearOverdueRecord();
+        renderAll();
+        checkFensiLogin(false);
+    };
+
+    function getList() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return [];
+
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data)) {
+                localStorage.removeItem(STORAGE_KEY);
+                return [];
+            }
+
+            return data;
+        } catch (e) {
+            console.warn('本地缓存数据损坏，已自动清除：', e);
+            localStorage.removeItem(STORAGE_KEY);
+            return [];
+        }
+    }
+
+    function saveList(arr) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+    }
+
+    function getApiConfig() {
+        try {
+            const raw = localStorage.getItem(API_CONFIG_KEY);
+            const saved = raw ? JSON.parse(raw) : {};
+            const cfg = Object.assign({}, DEFAULT_API_CONFIG, saved || {});
+            if ((cfg.apiMode || 'fensiBuy') === 'fensiBuy') {
+                if (!cfg.appId) cfg.appId = DEFAULT_API_CONFIG.appId;
+                if (!cfg.appSecret) cfg.appSecret = DEFAULT_API_CONFIG.appSecret;
+                cfg.apiUrl = DEFAULT_API_CONFIG.apiUrl;
+                if (!cfg.insGoodsId) cfg.insGoodsId = DEFAULT_API_CONFIG.insGoodsId;
+                if (!cfg.insLikeGoodsId) cfg.insLikeGoodsId = DEFAULT_API_CONFIG.insLikeGoodsId;
+                if (!cfg.buyParamKey || cfg.buyParamKey === 'input') {
+                    cfg.buyParamKey = DEFAULT_API_CONFIG.buyParamKey;
+                }
+            }
+            return cfg;
+        } catch (e) {
+            return Object.assign({}, DEFAULT_API_CONFIG);
+        }
+    }
+
+    function loadApiConfigToPage() {
+        const c = getApiConfig();
+        Object.keys(DEFAULT_API_CONFIG).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) el.value = c[key] || '';
+        });
+    }
+
+    function readApiConfigFromPage() {
+        const c = getApiConfig();
+        Object.keys(DEFAULT_API_CONFIG).forEach(key => {
+            const el = document.getElementById(key);
+            if (el) c[key] = el.value.trim();
+        });
+
+        const selectedType = getSelectedInsProjectType();
+        c.selectedInsProject = selectedType;
+        saveVisibleInsProjectConfig(c, selectedType);
+        c.goodsId = getProjectGoodsId(selectedType, c) || c.goodsId;
+        return c;
+    }
+
+    function saveApiConfig() {
+        const c = readApiConfigFromPage();
+        if ((c.apiMode || 'fensiBuy') === 'fensiBuy') {
+            c.apiUrl = DEFAULT_API_CONFIG.apiUrl;
+        }
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(c));
+        loadApiConfigToPage();
+        syncInsProjectTemplate(false);
+        showToast('API配置已保存');
+        setActionStatus('API配置已保存', 'ok');
+    }
+
+    function resetApiConfig() {
+        if (!confirm('确定重置API配置？')) return;
+        localStorage.removeItem(API_CONFIG_KEY);
+        loadApiConfigToPage();
+        currentInsProjectType = getSelectedInsProjectType();
+        syncInsProjectTemplate(false);
+        showToast('已重置');
+    }
+
+    async function testApiConfig() {
+        saveApiConfig();
+        const c = getApiConfig();
+        const check = validateApiConfig(c, resolveBatchType('ins'));
+        if (!check.ok) {
+            showToast(check.msg);
+            return;
+        }
+
+        if (isFensiBuyMode(c)) {
+            await checkFensiLogin(true);
+            return;
+        }
+
+        showToast('配置已保存。录入链接后点批量购买');
+    }
+
+    function getLocalProxyBase() {
+        return 'http://127.0.0.1:8787';
+    }
+
+    async function readJsonResponse(res) {
+        const text = await res.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch (e) {}
+        return { text, data };
+    }
+
+    async function loginFensi() {
+        const accountEl = document.getElementById('loginAccount');
+        const passwordEl = document.getElementById('loginPassword');
+        const account = accountEl ? accountEl.value.trim() : '';
+        const password = passwordEl ? passwordEl.value : '';
+
+        if (!account || !password) {
+            showToast('请输入网站账号和密码');
+            setActionStatus('请输入网站账号和密码后再登录', 'fail');
+            return false;
+        }
+
+        setActionStatus('正在登录网站...', 'warn');
+
+        try {
+            const res = await fetch(getLocalProxyBase() + '/api/local/Login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                body: JSON.stringify({ account, password })
+            });
+            const result = await readJsonResponse(res);
+            const data = result.data;
+            const msg = (data && (data.message || data.msg)) || result.text || '登录接口已返回';
+
+            if (res.ok && data && Number(data.code) === 0) {
+                if (passwordEl) passwordEl.value = '';
+                showToast('网站登录成功');
+                setActionStatus('网站登录成功，可以提交购买。', 'ok');
+                return true;
+            }
+
+            showToast('登录失败');
+            setActionStatus('网站登录失败：' + msg, 'fail');
+            return false;
+        } catch (e) {
+            const msg = '登录失败：本地转发服务未启动或网络异常';
+            showToast(msg);
+            setActionStatus(msg + '。请保持 fensi_proxy_server.js 正在运行。', 'fail');
+            return false;
+        }
+    }
+
+    async function checkFensiLogin(showResult) {
+        try {
+            const res = await fetch(getLocalProxyBase() + '/api/local/CheckLogin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                body: '{}'
+            });
+            const result = await readJsonResponse(res);
+            const data = result.data;
+            const msg = (data && (data.message || data.msg)) || result.text || '登录检测已返回';
+            const ok = res.ok && data && Number(data.code) === 0;
+
+            if (showResult || ok) {
+                showToast(ok ? '登录状态正常' : '还没有登录状态');
+                setActionStatus(ok ? '网站登录状态正常，可以提交购买。' : '还没有网站登录状态：' + msg, ok ? 'ok' : 'fail');
+            }
+
+            return { ok, msg };
+        } catch (e) {
+            const msg = '无法检测登录：本地转发服务未启动或网络异常';
+            if (showResult) {
+                showToast('检测失败');
+                setActionStatus(msg, 'fail');
+            }
+            return { ok: false, msg };
+        }
+    }
+
+    async function logoutFensi() {
+        try {
+            await fetch(getLocalProxyBase() + '/api/local/Logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                body: '{}'
+            });
+        } catch (e) {}
+
+        showToast('已清除登录状态');
+        setActionStatus('已清除本机临时登录状态。', 'warn');
+    }
+
+    function getProject(type) {
+        return PROJECTS[type] || PROJECTS.ins;
+    }
+
+    function getInsProjectConfigKeys(type) {
+        if (type === 'insLike') {
+            return {
+                goodsId: 'insLikeGoodsId',
+                min: 'insLikeRandomMinNum',
+                max: 'insLikeRandomMaxNum',
+                base: 'insLikeOrderBaseNum'
+            };
+        }
+
+        if (type === 'ins') {
+            return {
+                goodsId: 'insGoodsId',
+                min: 'insRandomMinNum',
+                max: 'insRandomMaxNum',
+                base: 'insOrderBaseNum'
+            };
+        }
+
+        return null;
+    }
+
+    function saveVisibleInsProjectConfig(cfg, type) {
+        const keys = getInsProjectConfigKeys(type);
+        if (!keys) return cfg;
+
+        const insTid = document.getElementById('insTid');
+        const minNum = document.getElementById('randomMinNum');
+        const maxNum = document.getElementById('randomMaxNum');
+        const baseNum = document.getElementById('orderBaseNum');
+
+        if (insTid && insTid.value.trim()) cfg[keys.goodsId] = insTid.value.trim();
+        if (minNum && minNum.value.trim()) cfg[keys.min] = minNum.value.trim();
+        if (maxNum && maxNum.value.trim()) cfg[keys.max] = maxNum.value.trim();
+        if (baseNum && baseNum.value.trim()) cfg[keys.base] = baseNum.value.trim();
+
+        return cfg;
+    }
+
+    function getInsProjectTemplate(type, cfg) {
+        const project = getProject(type);
+        const keys = getInsProjectConfigKeys(type);
+        const c = cfg || {};
+
+        if (!keys) {
+            return {
+                goodsId: c.goodsId || project.goodsId || '',
+                randomMinNum: c.randomMinNum || project.randomMinNum || '50',
+                randomMaxNum: c.randomMaxNum || project.randomMaxNum || '100',
+                orderBaseNum: c.orderBaseNum || project.orderBaseNum || '100',
+                buyParamKey: c.buyParamKey || project.buyParamKey || '作品链接'
+            };
+        }
+
+        return {
+            goodsId: c[keys.goodsId] || project.goodsId || '',
+            randomMinNum: c[keys.min] || project.randomMinNum || '50',
+            randomMaxNum: c[keys.max] || project.randomMaxNum || '100',
+            orderBaseNum: c[keys.base] || project.orderBaseNum || '100',
+            buyParamKey: c.buyParamKey || project.buyParamKey || '作品链接'
+        };
+    }
+
+    function getProjectGoodsId(type, cfg) {
+        return getInsProjectTemplate(type, cfg).goodsId;
+    }
+
+    function getSelectedInsProjectType() {
+        const el = document.getElementById('selectedInsProject');
+        return el && PROJECTS[el.value] ? el.value : 'ins';
+    }
+
+    function resolveBatchType(type) {
+        return type === 'ins' ? getSelectedInsProjectType() : type;
+    }
+
+    function getTypeLabel(type) {
+        return getProject(type).label || String(type || '').toUpperCase();
+    }
+
+    function isInsRecordType(type) {
+        return type === 'ins' || type === 'insLike';
+    }
+
+    function getRecordLabel(type) {
+        return isInsRecordType(type) ? 'INS' : getTypeLabel(type);
+    }
+
+    function getEffectiveConfig(cfg, type) {
+        const project = getProject(type);
+        const template = getInsProjectTemplate(type, cfg);
+        const next = Object.assign({}, cfg);
+
+        if (isFensiBuyMode(next)) {
+            next.goodsId = template.goodsId || project.goodsId || next.goodsId;
+            next.randomMinNum = template.randomMinNum || project.randomMinNum || next.randomMinNum;
+            next.randomMaxNum = template.randomMaxNum || project.randomMaxNum || next.randomMaxNum;
+            next.orderBaseNum = template.orderBaseNum || project.orderBaseNum || next.orderBaseNum;
+            next.buyParamKey = template.buyParamKey || project.buyParamKey || next.buyParamKey;
+        }
+
+        return next;
+    }
+
+    function syncInsProjectTemplate(showResult) {
+        const type = getSelectedInsProjectType();
+        const project = getProject(type);
+        const cfg = getApiConfig();
+        const oldType = currentInsProjectType || type;
+        const input = document.getElementById('insVal');
+        const goodsId = document.getElementById('goodsId');
+        const insTid = document.getElementById('insTid');
+        const minNum = document.getElementById('randomMinNum');
+        const maxNum = document.getElementById('randomMaxNum');
+        const baseNum = document.getElementById('orderBaseNum');
+        const linkKey = document.getElementById('buyParamKey');
+
+        if (oldType !== type) {
+            saveVisibleInsProjectConfig(cfg, oldType);
+        }
+
+        const template = getInsProjectTemplate(type, cfg);
+        const projectId = template.goodsId;
+        currentInsProjectType = type;
+
+        if (input) input.placeholder = type === 'insLike' ? 'ins点赞输入链接' : 'ins播放输入链接';
+        if (goodsId) goodsId.value = projectId || project.goodsId || goodsId.value;
+        if (insTid) insTid.value = projectId || project.goodsId || insTid.value;
+        if (minNum) minNum.value = template.randomMinNum || minNum.value;
+        if (maxNum) maxNum.value = template.randomMaxNum || maxNum.value;
+        if (baseNum) baseNum.value = template.orderBaseNum || baseNum.value;
+        if (linkKey) linkKey.value = template.buyParamKey || linkKey.value;
+
+        cfg.selectedInsProject = type;
+        cfg.goodsId = projectId || project.goodsId || cfg.goodsId;
+        saveVisibleInsProjectConfig(cfg, type);
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        renderAll();
+
+        if (showResult) {
+            setActionStatus(`已切换到${project.label}：项目ID ${cfg.goodsId}，数量 ${template.randomMinNum}-${template.randomMaxNum}，基数 ${template.orderBaseNum}`, 'ok');
+        }
+    }
+
+    function rememberCurrentInsTemplate() {
+        const type = getSelectedInsProjectType();
+        const cfg = getApiConfig();
+        saveVisibleInsProjectConfig(cfg, type);
+        cfg.selectedInsProject = type;
+        cfg.goodsId = getProjectGoodsId(type, cfg) || cfg.goodsId;
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+
+        const goodsId = document.getElementById('goodsId');
+        if (goodsId) goodsId.value = cfg.goodsId || '';
+    }
+
+    function getDate() {
+        const d = new Date();
+        return `${d.getMonth() + 1}.${d.getDate()}`;
+    }
+
+    async function saveAndSubmit(type) {
+        const actualType = type === 'ins' ? 'ins' : type;
+        const project = getProject(actualType);
+        const input = document.getElementById(project.inputId);
+        const val = input.value.trim();
+
+        if (!val) {
+            showToast('请输入内容');
+            return;
+        }
+
+        const list = getList();
+        const item = {
+            time: Date.now(),
+            date: getDate(),
+            type: actualType,
+            content: val,
+            apiStatus: 'local',
+            apiMsg: '已本地保存，尚未提交API',
+            apiResponse: ''
+        };
+
+        list.unshift(item);
+        saveList(list);
+        input.value = '';
+        renderAll();
+        showToast('已加入待购买列表');
+        setActionStatus(`${getRecordLabel(actualType)}链接已加入待购买列表：${val}`, 'ok');
+    }
+
+    function isFensiBuyMode(cfg) {
+        return (cfg.apiMode || 'fensiBuy') === 'fensiBuy';
+    }
+
+    function validateApiConfig(cfg, type) {
+        if (!cfg.apiUrl) {
+            return { ok: false, msg: '请填写接口地址' };
+        }
+
+        const effectiveCfg = getEffectiveConfig(cfg, type);
+        const buyRange = getBuyNumberRange(effectiveCfg);
+        if (!buyRange.ok) {
+            return { ok: false, msg: buyRange.msg };
+        }
+
+        if (isFensiBuyMode(effectiveCfg)) {
+            if (!effectiveCfg.goodsId) {
+                return { ok: false, msg: '请填写商品ID' };
+            }
+            return { ok: true, msg: '' };
+        }
+
+        const project = getProject(type);
+        const tid = project.tidKey ? cfg[project.tidKey] : '';
+        if (!cfg.apiKey || !tid) {
+            return { ok: false, msg: 'API配置不完整：请填写密钥和对应项目ID' };
+        }
+        return { ok: true, msg: '' };
+    }
+
+    function buildApiParams(item, cfg, purchaseType) {
+        const submitType = purchaseType || item.type;
+        const project = getProject(submitType);
+        const tid = project.tidKey ? cfg[project.tidKey] : '';
+        const params = new URLSearchParams();
+
+        if (cfg.fieldAction && cfg.valueAction) params.append(cfg.fieldAction, cfg.valueAction);
+        if (cfg.fieldKey) params.append(cfg.fieldKey, cfg.apiKey);
+        if (cfg.fieldService) params.append(cfg.fieldService, tid);
+        if (cfg.fieldLink) params.append(cfg.fieldLink, item.content);
+        if (cfg.fieldNum) {
+            const buyNumber = getRandomBuyNumber(getEffectiveConfig(cfg, submitType));
+            item.__buyNumber = buyNumber;
+            params.append(cfg.fieldNum, String(buyNumber));
+        }
+
+        return params;
+    }
+
+    function parseExtraBuyParams(cfg) {
+        const raw = (cfg.extraBuyParams || '').trim();
+        if (!raw) return {};
+
+        const data = JSON.parse(raw);
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            throw new Error('附加购买参数必须是JSON对象');
+        }
+        return data;
+    }
+
+    function normalizeMaybeNumber(value) {
+        const str = String(value == null ? '' : value).trim();
+        if (str !== '' && /^\d+$/.test(str)) return Number(str);
+        return str;
+    }
+
+    function normalizeInteger(value, fallback) {
+        const num = Number.parseInt(String(value == null ? '' : value).trim(), 10);
+        return Number.isFinite(num) && num > 0 ? num : fallback;
+    }
+
+    function getBuyNumberRange(cfg) {
+        const minRaw = String(cfg.randomMinNum == null ? '' : cfg.randomMinNum).trim();
+        const maxRaw = String(cfg.randomMaxNum == null ? '' : cfg.randomMaxNum).trim();
+        const baseRaw = String(cfg.orderBaseNum == null ? '' : cfg.orderBaseNum).trim();
+        const min = normalizeInteger(minRaw, 50);
+        const max = normalizeInteger(maxRaw, 100);
+        const base = normalizeInteger(baseRaw, 100);
+
+        if (minRaw && (!/^\d+$/.test(minRaw) || min <= 0)) {
+            return { ok: false, msg: '随机最小数量必须是大于0的整数' };
+        }
+        if (maxRaw && (!/^\d+$/.test(maxRaw) || max <= 0)) {
+            return { ok: false, msg: '随机最大数量必须是大于0的整数' };
+        }
+        if (baseRaw && (!/^\d+$/.test(baseRaw) || base <= 0)) {
+            return { ok: false, msg: '下单基数必须是大于0的整数' };
+        }
+        if (min > max) {
+            return { ok: false, msg: '随机最小数量不能大于最大数量' };
+        }
+
+        const minMultiple = Math.ceil(min / base);
+        const maxMultiple = Math.floor(max / base);
+        if (minMultiple > maxMultiple) {
+            return { ok: false, msg: `随机范围 ${min}-${max} 内没有符合下单基数 ${base} 的数量` };
+        }
+
+        return { ok: true, min, max, base, minMultiple, maxMultiple, msg: '' };
+    }
+
+    function getRandomBuyNumber(cfg) {
+        const range = getBuyNumberRange(cfg);
+        if (!range.ok) return 100;
+        const multiple = Math.floor(Math.random() * (range.maxMultiple - range.minMultiple + 1)) + range.minMultiple;
+        return multiple * range.base;
+    }
+
+    function getBuyNumberLabel(cfg) {
+        const range = getBuyNumberRange(cfg);
+        if (!range.ok) return '50-100，基数100';
+        const first = range.minMultiple * range.base;
+        const last = range.maxMultiple * range.base;
+        return first === last ? `${first}（基数${range.base}）` : `${first}-${last}，基数${range.base}`;
+    }
+
+    function getFensiEndpointUrl(cfg, isBatch) {
+        let url = cfg.apiUrl || DEFAULT_API_CONFIG.apiUrl;
+        if (isBatch) {
+            return url.replace(/\/Buy(?:\?.*)?$/i, '/BuyIn');
+        }
+        return url.replace(/\/BuyIn(?:\?.*)?$/i, '/Buy');
+    }
+
+    function buildFensiBuyPayload(item, cfg, purchaseType) {
+        const effectiveCfg = getEffectiveConfig(cfg, purchaseType || item.type);
+        const buyParams = parseExtraBuyParams(effectiveCfg);
+        const linkKey = effectiveCfg.buyParamKey || effectiveCfg.fieldLink || 'input';
+        const buyNumber = getRandomBuyNumber(effectiveCfg);
+
+        buyParams[linkKey] = item.content;
+        item.__buyNumber = buyNumber;
+
+        const payload = {};
+        payload[effectiveCfg.fieldGoodsId || 'id'] = normalizeMaybeNumber(effectiveCfg.goodsId || '3633');
+        payload[effectiveCfg.fieldBuyNumber || 'buy_number'] = buyNumber;
+        payload[effectiveCfg.fieldBuyParams || 'buy_params'] = buyParams;
+
+        return payload;
+    }
+
+    function buildFensiBatchPayload(items, cfg, purchaseType) {
+        const itemType = purchaseType || (items[0] ? items[0].type : 'ins');
+        const effectiveCfg = getEffectiveConfig(cfg, itemType);
+        const linkKey = effectiveCfg.buyParamKey || effectiveCfg.fieldLink || 'input';
+        const payload = {};
+
+        payload[effectiveCfg.fieldGoodsId || 'id'] = normalizeMaybeNumber(effectiveCfg.goodsId || '3633');
+        payload.buys = items.map(item => {
+            const itemCfg = getEffectiveConfig(cfg, itemType);
+            const buyParams = parseExtraBuyParams(itemCfg);
+            const buyNumber = getRandomBuyNumber(itemCfg);
+            buyParams[linkKey] = item.content;
+            item.__buyNumber = buyNumber;
+            return {
+                buy_number: buyNumber,
+                buy_params: buyParams
+            };
+        });
+
+        return payload;
+    }
+
+    function appendPayloadToParams(params, payload) {
+        Object.keys(payload).forEach(key => {
+            const value = payload[key];
+            if (value && typeof value === 'object') {
+                params.append(key, JSON.stringify(value));
+            } else {
+                params.append(key, value == null ? '' : String(value));
+            }
+        });
+    }
+
+    async function submitItemByIndex(idx, purchaseType) {
+        const list = getList();
+        const item = list[idx];
+        if (!item) return;
+
+        const cfg = getApiConfig();
+        const submitType = purchaseType || item.type;
+        const effectiveCfg = getEffectiveConfig(cfg, submitType);
+        const check = validateApiConfig(cfg, submitType);
+
+        if (!check.ok) {
+            setPurchaseResult(item, submitType, {
+                apiStatus: 'fail',
+                apiMsg: check.msg,
+                apiResponse: check.msg
+            });
+            saveList(list);
+            renderAll();
+            showToast(item.apiMsg);
+            return;
+        }
+
+        setPurchaseResult(item, submitType, {
+            apiStatus: 'pending',
+            apiMsg: '提交中',
+            apiResponse: ''
+        });
+        saveList(list);
+        renderAll();
+
+        try {
+            if (isFensiBuyMode(cfg)) {
+                const login = await checkFensiLogin(false);
+                if (!login.ok) {
+                    throw new Error('请先登录网站：' + login.msg);
+                }
+            }
+
+            const method = String(cfg.apiMethod || 'POST').toUpperCase();
+            let url = isFensiBuyMode(cfg) ? getFensiEndpointUrl(effectiveCfg, false) : cfg.apiUrl;
+            const options = { method };
+
+            if (isFensiBuyMode(cfg)) {
+                const payload = buildFensiBuyPayload(item, cfg, submitType);
+                if (method === 'GET') {
+                    const params = new URLSearchParams();
+                    appendPayloadToParams(params, payload);
+                    const joiner = url.includes('?') ? '&' : '?';
+                    url = url + joiner + params.toString();
+                } else {
+                    options.headers = { 'Content-Type': 'application/json;charset=UTF-8' };
+                    options.body = JSON.stringify(payload);
+                }
+            } else {
+                const params = buildApiParams(item, cfg, submitType);
+                if (method === 'GET') {
+                    const joiner = url.includes('?') ? '&' : '?';
+                    url = url + joiner + params.toString();
+                } else {
+                    options.headers = { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' };
+                    options.body = params.toString();
+                }
+            }
+
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch (e) {}
+
+            const finalList = getList();
+            const finalItem = finalList[idx];
+            if (!finalItem) return;
+
+            const parsed = parseApiResult(res.ok, text, data, effectiveCfg);
+            const previousInfo = getPurchaseInfo(finalItem, submitType);
+            setPurchaseResult(finalItem, submitType, {
+                apiStatus: parsed.ok ? 'success' : 'fail',
+                apiMsg: parsed.msg,
+                apiResponse: text || parsed.msg,
+                orderId: parsed.orderId || previousInfo.orderId || '',
+                buyNumber: item.__buyNumber || previousInfo.buyNumber || ''
+            });
+
+            saveList(finalList);
+            renderAll();
+            showToast(parsed.msg);
+        } catch (e) {
+            const finalList = getList();
+            const finalItem = finalList[idx];
+            if (!finalItem) return;
+
+            setPurchaseResult(finalItem, submitType, {
+                apiStatus: 'fail',
+                apiMsg: '提交失败：' + (e && e.message ? e.message : '可能是跨域/CORS、接口地址错误、或网络问题'),
+                apiResponse: String(e && e.message ? e.message : e)
+            });
+            saveList(finalList);
+            renderAll();
+            showToast(finalItem.apiMsg);
+        }
+    }
+
+    async function submitBatchByType(type) {
+        const purchaseType = resolveBatchType(type);
+        const recordType = type === 'ins' ? 'ins' : purchaseType;
+        const typeLabel = getTypeLabel(purchaseType);
+        const inputLabel = type === 'ins' ? 'INS' : typeLabel;
+        setActionStatus(`正在准备批量购买${typeLabel}...`, 'warn');
+        saveApiConfig();
+
+        const list = getList();
+        const cfg = getApiConfig();
+        const effectiveCfg = getEffectiveConfig(cfg, purchaseType);
+        const check = validateApiConfig(cfg, purchaseType);
+
+        if (!check.ok) {
+            showToast(check.msg);
+            setActionStatus(check.msg, 'fail');
+            return;
+        }
+
+        const allRows = list
+            .map((item, idx) => ({ item, idx }))
+            .filter(row => {
+                if (!row.item || !row.item.content) return false;
+                return type === 'ins' ? isInsRecordType(row.item.type) : row.item.type === recordType;
+            });
+        let targets = allRows.filter(row => getPurchaseInfo(row.item, purchaseType).apiStatus !== 'success');
+        let isResubmit = false;
+
+        if (!targets.length) {
+            if (!allRows.length) {
+                const msg = `暂无${inputLabel}链接：先在${inputLabel}输入框添加链接并点确认`;
+                showToast(msg);
+                setActionStatus(msg, 'fail');
+                return;
+            }
+
+            const resubmitMsg = `当前${typeLabel}记录都已提交。是否重新购买这 ${allRows.length} 条？会产生新订单。`;
+            setActionStatus(resubmitMsg, 'warn');
+            if (!confirm(resubmitMsg)) {
+                setActionStatus('已取消重新购买', 'warn');
+                return;
+            }
+            targets = allRows;
+            isResubmit = true;
+        }
+
+        const confirmMsg = `确定按随机数量 ${getBuyNumberLabel(effectiveCfg)} 批量购买 ${targets.length} 条${typeLabel}链接？`;
+        if (!isResubmit) {
+            setActionStatus(confirmMsg, 'warn');
+            if (!confirm(confirmMsg)) {
+                setActionStatus('已取消批量购买', 'warn');
+                return;
+            }
+        }
+
+        if (!isFensiBuyMode(cfg)) {
+            for (const row of targets) {
+                await submitItemByIndex(row.idx, purchaseType);
+            }
+            return;
+        }
+
+        const login = await checkFensiLogin(false);
+        if (!login.ok) {
+            const msg = '请先登录网站：' + login.msg;
+            showToast('请先登录网站');
+            setActionStatus(msg, 'fail');
+            return;
+        }
+
+        targets.forEach(row => {
+            const pendingFields = {
+                apiStatus: 'pending',
+                apiMsg: '批量提交中',
+                apiResponse: ''
+            };
+            if (isResubmit) pendingFields.orderId = '';
+            setPurchaseResult(row.item, purchaseType, pendingFields);
+        });
+        saveList(list);
+        renderAll();
+        setActionStatus(`正在提交 ${targets.length} 条${typeLabel}链接，请稍等...`, 'warn');
+
+        try {
+            const payload = buildFensiBatchPayload(targets.map(row => row.item), cfg, purchaseType);
+            const method = String(cfg.apiMethod || 'POST').toUpperCase();
+            let url = getFensiEndpointUrl(effectiveCfg, true);
+            const options = { method };
+
+            if (method === 'GET') {
+                const params = new URLSearchParams();
+                appendPayloadToParams(params, payload);
+                const joiner = url.includes('?') ? '&' : '?';
+                url = url + joiner + params.toString();
+            } else {
+                options.headers = { 'Content-Type': 'application/json;charset=UTF-8' };
+                options.body = JSON.stringify(payload);
+            }
+
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch (e) {}
+
+            const parsed = parseApiResult(res.ok, text, data, effectiveCfg);
+            const finalList = getList();
+
+            targets.forEach(row => {
+                const item = finalList[row.idx];
+                if (!item) return;
+                const previousInfo = getPurchaseInfo(item, purchaseType);
+                setPurchaseResult(item, purchaseType, {
+                    apiStatus: parsed.ok ? 'success' : 'fail',
+                    apiMsg: parsed.msg,
+                    apiResponse: text || parsed.msg,
+                    orderId: parsed.orderId || previousInfo.orderId || '',
+                    buyNumber: row.item.__buyNumber || previousInfo.buyNumber || ''
+                });
+                item.batchCount = targets.length;
+            });
+
+            saveList(finalList);
+            renderAll();
+            showToast(parsed.msg);
+            setActionStatus(parsed.msg + (text ? '\n接口返回：' + text.slice(0, 500) : ''), parsed.ok ? 'ok' : 'fail');
+        } catch (e) {
+            const finalList = getList();
+            const errMsg = '批量提交失败：' + (e && e.message ? e.message : '可能是跨域/CORS、接口地址错误、或网络问题');
+            targets.forEach(row => {
+                const item = finalList[row.idx];
+                if (!item) return;
+                setPurchaseResult(item, purchaseType, {
+                    apiStatus: 'fail',
+                    apiMsg: errMsg,
+                    apiResponse: String(e && e.message ? e.message : e)
+                });
+            });
+            saveList(finalList);
+            renderAll();
+            showToast('批量提交失败');
+            setActionStatus(errMsg, 'fail');
+        }
+    }
+
+    function parseApiResult(httpOk, text, data, cfg) {
+        if (!httpOk) {
+            return { ok: false, msg: '接口请求失败：HTTP状态异常' };
+        }
+
+        if (!data) {
+            return { ok: true, msg: '接口已返回，请点记录查看原始结果' };
+        }
+
+        const code = data.code !== undefined ? data.code : data.status;
+        const msg = data.msg ||
+            data.message ||
+            data.info ||
+            data.error ||
+            (data.data && (data.data.msg || data.data.message || data.data.info || data.data.error)) ||
+            '接口已返回';
+        const orderId = data.order ||
+            data.orderid ||
+            data.order_id ||
+            data.id ||
+            (data.data && (data.data.order || data.data.orderid || data.data.order_id || data.data.id)) ||
+            '';
+        const codeStr = String(code).toLowerCase();
+        const msgStr = String(msg);
+
+        if (isFensiBuyMode(cfg) && (code === 100 || codeStr === '100')) {
+            return {
+                ok: false,
+                msg: '提交失败：网站登录状态无效，请重新点“登录网站”',
+                orderId: ''
+            };
+        }
+
+        const failWords = ['失败', '错误', '无效', '不能为空', '余额不足', 'error', 'fail'];
+        const looksFail = failWords.some(w => msgStr.toLowerCase().includes(w.toLowerCase()));
+        const hasCode = code !== undefined && code !== null && code !== '';
+        let looksOkCode = Boolean(orderId) || !looksFail;
+
+        if (hasCode) {
+            looksOkCode = isFensiBuyMode(cfg)
+                ? code === 0 || codeStr === '0' || code === true || codeStr === 'success' || codeStr === 'ok'
+                : code === 0 || code === 1 || code === true || codeStr === 'success' || codeStr === 'ok';
+        }
+
+        return {
+            ok: looksOkCode && !looksFail,
+            msg: (looksOkCode && !looksFail ? '提交成功' : '提交可能失败') + '：' + msg,
+            orderId
+        };
+    }
+
+    function renderAll() {
+        const list = getList();
+        let insHtml = '';
+        let tkHtml = '';
+
+        list.forEach((item, idx) => {
+            const safeDate = escapeHtml(item.date || '');
+            const safeType = escapeHtml(getRecordLabel(item.type));
+            const purchaseType = isInsRecordType(item.type) ? getSelectedInsProjectType() : item.type;
+            const info = getPurchaseInfo(item, purchaseType);
+            const status = getStatusText(info.apiStatus);
+            const order = info.orderId ? `<div style="font-size:11px;color:#888;margin-top:3px;">订单：${escapeHtml(info.orderId)}</div>` : '';
+            const buyInfo = info.buyNumber ? `<div style="font-size:11px;color:#888;margin-top:3px;">数量：${escapeHtml(info.buyNumber)}</div>` : '';
+            const itemHtml = `
+                <div class="record-item" onclick="openEdit(${idx})">
+                    <div>${safeDate} ${safeType}</div>
+                    <span class="status ${status.cls}">${status.text}</span>
+                    ${buyInfo}
+                    ${order}
+                </div>`;
+
+            if (isInsRecordType(item.type)) {
+                insHtml += itemHtml;
+            } else if (item.type === 'tk') {
+                tkHtml += itemHtml;
+            }
+        });
+
+        document.getElementById('insList').innerHTML = insHtml;
+        document.getElementById('tkList').innerHTML = tkHtml;
+    }
+
+    function getStatusText(status) {
+        if (status === 'success') return { text: '已提交', cls: 'status-success' };
+        if (status === 'fail') return { text: '提交失败', cls: 'status-fail' };
+        if (status === 'pending') return { text: '提交中', cls: 'status-pending' };
+        return { text: '本地保存', cls: 'status-local' };
+    }
+
+    function getPurchaseInfo(item, purchaseType) {
+        if (!item) return { apiStatus: 'local', apiMsg: '', apiResponse: '', orderId: '', buyNumber: '' };
+
+        if (item.apiByProject) {
+            if (item.apiByProject[purchaseType]) {
+                return Object.assign({
+                    apiStatus: 'local',
+                    apiMsg: '',
+                    apiResponse: '',
+                    orderId: '',
+                    buyNumber: ''
+                }, item.apiByProject[purchaseType]);
+            }
+
+            return {
+                apiStatus: 'local',
+                apiMsg: '已本地保存，尚未提交API',
+                apiResponse: '',
+                orderId: '',
+                buyNumber: ''
+            };
+        }
+
+        if (item.type === purchaseType) {
+            return {
+                apiStatus: item.apiStatus || 'local',
+                apiMsg: item.apiMsg || '',
+                apiResponse: item.apiResponse || '',
+                orderId: item.orderId || '',
+                buyNumber: item.buyNumber || ''
+            };
+        }
+
+        return { apiStatus: 'local', apiMsg: '已本地保存，尚未提交API', apiResponse: '', orderId: '', buyNumber: '' };
+    }
+
+    function setPurchaseResult(item, purchaseType, fields) {
+        if (!item) return;
+
+        if (purchaseType === 'ins' || purchaseType === 'insLike' || isInsRecordType(item.type)) {
+            if (!item.apiByProject) {
+                item.apiByProject = {};
+                if (isInsRecordType(item.type) && item.apiStatus && item.apiStatus !== 'local') {
+                    item.apiByProject[item.type] = {
+                        apiStatus: item.apiStatus || 'local',
+                        apiMsg: item.apiMsg || '',
+                        apiResponse: item.apiResponse || '',
+                        orderId: item.orderId || '',
+                        buyNumber: item.buyNumber || ''
+                    };
+                }
+            }
+            item.apiByProject[purchaseType] = Object.assign({}, item.apiByProject[purchaseType] || {}, fields);
+            item.lastPurchaseType = purchaseType;
+        }
+
+        Object.assign(item, fields);
+    }
+
+    function openEdit(idx) {
+        const list = getList();
+
+        if (!list[idx]) {
+            showToast('记录不存在');
+            renderAll();
+            return;
+        }
+
+        currentEditIndex = idx;
+        const purchaseType = isInsRecordType(list[idx].type) ? getSelectedInsProjectType() : list[idx].type;
+        const info = getPurchaseInfo(list[idx], purchaseType);
+        document.getElementById('editDate').value = list[idx].date || '';
+        document.getElementById('editContent').value = list[idx].content || '';
+        document.getElementById('editApiResult').value = info.apiResponse || info.apiMsg || '';
+        document.getElementById('modalMask').style.display = 'flex';
+    }
+
+    function saveEdit() {
+        const list = getList();
+
+        if (currentEditIndex < 0 || !list[currentEditIndex]) {
+            showToast('记录不存在');
+            closeModal();
+            renderAll();
+            return;
+        }
+
+        const date = document.getElementById('editDate').value.trim();
+        const content = document.getElementById('editContent').value.trim();
+
+        if (!date) {
+            showToast('日期不能为空');
+            return;
+        }
+
+        if (!content) {
+            showToast('内容不能为空');
+            return;
+        }
+
+        list[currentEditIndex].date = date;
+        list[currentEditIndex].content = content;
+        saveList(list);
+        closeModal();
+        renderAll();
+        showToast('修改已保存');
+    }
+
+    async function retryCurrentItem() {
+        const idx = currentEditIndex;
+        if (idx < 0) {
+            showToast('记录不存在');
+            return;
+        }
+
+        const list = getList();
+        if (!list[idx]) {
+            showToast('记录不存在');
+            closeModal();
+            renderAll();
+            return;
+        }
+
+        const date = document.getElementById('editDate').value.trim();
+        const content = document.getElementById('editContent').value.trim();
+        if (!date || !content) {
+            showToast('日期和内容不能为空');
+            return;
+        }
+
+        list[idx].date = date;
+        list[idx].content = content;
+        saveList(list);
+        closeModal();
+        renderAll();
+        await submitItemByIndex(idx, isInsRecordType(list[idx].type) ? getSelectedInsProjectType() : list[idx].type);
+    }
+
+    function delCurrentItem() {
+        if (!confirm('确定删除这条记录？')) return;
+
+        const list = getList();
+
+        if (currentEditIndex < 0 || !list[currentEditIndex]) {
+            showToast('记录不存在');
+            closeModal();
+            renderAll();
+            return;
+        }
+
+        list.splice(currentEditIndex, 1);
+        saveList(list);
+        closeModal();
+        renderAll();
+        showToast('已删除');
+    }
+
+    function closeModal() {
+        document.getElementById('modalMask').style.display = 'none';
+        currentEditIndex = -1;
+    }
+
+    function maskClose(event) {
+        if (event.target.id === 'modalMask') closeModal();
+    }
+
+    function manualClearOverdue() {
+        clearOverdueRecord();
+        renderAll();
+        showToast('已清理7天外记录');
+    }
+
+    function clearAllRecord() {
+        if (!confirm('确定清空所有记录？不可恢复！')) return;
+        localStorage.removeItem(STORAGE_KEY);
+        renderAll();
+        showToast('已全部清除');
+    }
+
+    function copyInsData() {
+        const text = getList().filter(i => i.type === 'ins' || i.type === 'insLike').map(i => i.content).join('\n');
+        copy(text);
+    }
+
+    function copyTkData() {
+        const text = getList().filter(i => i.type === 'tk').map(i => i.content).join('\n');
+        copy(text);
+    }
+
+    function clearOverdueRecord() {
+        const now = Date.now();
+        const arr = getList().filter(item => item && typeof item.time === 'number' && now - item.time < SEVEN_DAY);
+        saveList(arr);
+    }
+
+    async function copy(text) {
+        if (!text) {
+            showToast('暂无可复制数据');
+            return;
+        }
+
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                fallbackCopy(text);
+            }
+            showToast('复制成功');
+        } catch (e) {
+            try {
+                fallbackCopy(text);
+                showToast('复制成功');
+            } catch (err) {
+                showToast('复制失败，请手动复制');
+            }
+        }
+    }
+
+    function fallbackCopy(text) {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.setAttribute('readonly', '');
+        el.style.position = 'fixed';
+        el.style.left = '-9999px';
+        el.style.top = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+    }
+
+    function showToast(txt) {
+        const t = document.getElementById('toast');
+        t.innerText = txt;
+        t.style.display = 'block';
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(() => {
+            t.style.display = 'none';
+        }, 1800);
+    }
+
+    function setActionStatus(txt, type) {
+        const el = document.getElementById('actionStatus');
+        if (!el) return;
+        el.innerText = txt;
+        el.className = 'action-status' + (type ? ' ' + type : '');
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+</script>
+
+</body>
+</html>

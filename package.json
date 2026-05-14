@@ -1,0 +1,8 @@
+{
+  "name": "fensi-order-tool",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node fensi_proxy_server.js"
+  }
+}
