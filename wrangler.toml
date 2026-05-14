@@ -1,6 +1,8 @@
 name = "ins-tk-proxy"
 main = "cloudflare-worker.js"
-compatibility_date = "2026-05-15"
+compatibility_date = "2026-05-14"
+workers_dev = true
+preview_urls = false
 
 [vars]
 # Set the real value with:

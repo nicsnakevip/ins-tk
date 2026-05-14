@@ -27,7 +27,7 @@ wrangler deploy
 
 2. 打开 GitHub Pages 页面。
 3. 在页面里填写：
-   - 转发服务地址：Cloudflare Worker 地址，例如 `https://ins-tk-proxy.xxx.workers.dev`
+   - 转发服务地址：`https://ins-tk-proxy.nicsnake-vip.workers.dev`
    - 转发访问密码：部署 Worker 时设置的 `PROXY_PASSWORD`
 4. 在页面里登录网站，再添加链接并批量购买。
 
