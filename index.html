@@ -388,6 +388,16 @@
                 <input type="text" id="apiUrl" placeholder="例如：http://127.0.0.1:8787/api/customer/Home/BuyIn">
             </div>
 
+            <div class="full">
+                <div class="field-label">转发服务地址（手机用）</div>
+                <input type="text" id="proxyBaseUrl" placeholder="本机：http://127.0.0.1:8787 或 Cloudflare Worker 地址">
+            </div>
+
+            <div class="full">
+                <div class="field-label">转发访问密码</div>
+                <input type="password" id="proxyPassword" placeholder="Cloudflare Worker 设置的访问密码">
+            </div>
+
             <div>
                 <div class="field-label">接口模式</div>
                 <select id="apiMode">
@@ -539,7 +549,7 @@
         </div>
 
         <div class="api-help">
-            fensi模式需要先登录网站。选择INS项目后，项目ID和数量模板会自动切换；上面的确认按钮只保存链接，点下面的“批量购买”才会真正下单。
+            fensi模式需要先登录网站。手机使用时填 Cloudflare Worker 转发地址和访问密码；登录状态只保存在当前浏览器本地。
         </div>
     </div>
 
@@ -605,6 +615,9 @@
 
     const DEFAULT_API_CONFIG = {
         apiUrl: 'http://127.0.0.1:8787/api/customer/Home/BuyIn',
+        proxyBaseUrl: 'http://127.0.0.1:8787',
+        proxyPassword: '',
+        fensiAuthToken: '',
         apiMode: 'fensiBuy',
         appId: '',
         appSecret: '',
@@ -720,7 +733,8 @@
             if ((cfg.apiMode || 'fensiBuy') === 'fensiBuy') {
                 if (!cfg.appId) cfg.appId = DEFAULT_API_CONFIG.appId;
                 if (!cfg.appSecret) cfg.appSecret = DEFAULT_API_CONFIG.appSecret;
-                cfg.apiUrl = DEFAULT_API_CONFIG.apiUrl;
+                if (!cfg.proxyBaseUrl) cfg.proxyBaseUrl = DEFAULT_API_CONFIG.proxyBaseUrl;
+                cfg.apiUrl = buildProxyUrl(cfg, '/api/customer/Home/BuyIn');
                 if (!cfg.insGoodsId) cfg.insGoodsId = DEFAULT_API_CONFIG.insGoodsId;
                 if (!cfg.insLikeGoodsId) cfg.insLikeGoodsId = DEFAULT_API_CONFIG.insLikeGoodsId;
                 if (!cfg.buyParamKey || cfg.buyParamKey === 'input') {
@@ -758,7 +772,8 @@
     function saveApiConfig() {
         const c = readApiConfigFromPage();
         if ((c.apiMode || 'fensiBuy') === 'fensiBuy') {
-            c.apiUrl = DEFAULT_API_CONFIG.apiUrl;
+            c.proxyBaseUrl = normalizeProxyBase(c.proxyBaseUrl);
+            c.apiUrl = buildProxyUrl(c, '/api/customer/Home/BuyIn');
         }
         localStorage.setItem(API_CONFIG_KEY, JSON.stringify(c));
         loadApiConfigToPage();
@@ -793,8 +808,48 @@
         showToast('配置已保存。录入链接后点批量购买');
     }
 
-    function getLocalProxyBase() {
-        return 'http://127.0.0.1:8787';
+    function normalizeProxyBase(base) {
+        const fallback = DEFAULT_API_CONFIG.proxyBaseUrl;
+        return String(base || fallback).trim().replace(/\/+$/, '') || fallback;
+    }
+
+    function getProxyBase(cfg) {
+        return normalizeProxyBase((cfg || getApiConfig()).proxyBaseUrl);
+    }
+
+    function buildProxyUrl(cfg, path) {
+        return getProxyBase(cfg) + path;
+    }
+
+    function getProxyHeaders(extraHeaders) {
+        const cfg = getApiConfig();
+        const headers = Object.assign({}, extraHeaders || {});
+        if (cfg.proxyPassword) headers['X-Proxy-Password'] = cfg.proxyPassword;
+        if (cfg.fensiAuthToken) headers['X-Fensi-Auth'] = cfg.fensiAuthToken;
+        return headers;
+    }
+
+    function saveFensiAuthToken(token) {
+        const cleanToken = String(token || '').trim();
+        if (!cleanToken) return;
+        const cfg = getApiConfig();
+        cfg.fensiAuthToken = cleanToken;
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+    }
+
+    function clearFensiAuthToken() {
+        const cfg = getApiConfig();
+        cfg.fensiAuthToken = '';
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+    }
+
+    function getFensiAuthTokenFromResponse(data) {
+        if (!data || typeof data !== 'object') return '';
+        return data.local_auth_token ||
+            data.auth_token ||
+            data.token ||
+            (data.data && (data.data.local_auth_token || data.data.auth_token || data.data.token)) ||
+            '';
     }
 
     async function readJsonResponse(res) {
@@ -819,9 +874,9 @@
         setActionStatus('正在登录网站...', 'warn');
 
         try {
-            const res = await fetch(getLocalProxyBase() + '/api/local/Login', {
+            const res = await fetch(buildProxyUrl(getApiConfig(), '/api/local/Login'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: JSON.stringify({ account, password })
             });
             const result = await readJsonResponse(res);
@@ -829,6 +884,7 @@
             const msg = (data && (data.message || data.msg)) || result.text || '登录接口已返回';
 
             if (res.ok && data && Number(data.code) === 0) {
+                saveFensiAuthToken(getFensiAuthTokenFromResponse(data));
                 if (passwordEl) passwordEl.value = '';
                 showToast('网站登录成功');
                 setActionStatus('网站登录成功，可以提交购买。', 'ok');
@@ -848,9 +904,9 @@
 
     async function checkFensiLogin(showResult) {
         try {
-            const res = await fetch(getLocalProxyBase() + '/api/local/CheckLogin', {
+            const res = await fetch(buildProxyUrl(getApiConfig(), '/api/local/CheckLogin'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: '{}'
             });
             const result = await readJsonResponse(res);
@@ -876,15 +932,16 @@
 
     async function logoutFensi() {
         try {
-            await fetch(getLocalProxyBase() + '/api/local/Logout', {
+            await fetch(buildProxyUrl(getApiConfig(), '/api/local/Logout'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: '{}'
             });
         } catch (e) {}
 
+        clearFensiAuthToken();
         showToast('已清除登录状态');
-        setActionStatus('已清除本机临时登录状态。', 'warn');
+        setActionStatus('已清除当前浏览器登录状态。', 'warn');
     }
 
     function getProject(type) {
@@ -1199,11 +1256,12 @@
     }
 
     function getFensiEndpointUrl(cfg, isBatch) {
-        let url = cfg.apiUrl || DEFAULT_API_CONFIG.apiUrl;
-        if (isBatch) {
-            return url.replace(/\/Buy(?:\?.*)?$/i, '/BuyIn');
+        if (isFensiBuyMode(cfg)) {
+            return buildProxyUrl(cfg, isBatch ? '/api/customer/Home/BuyIn' : '/api/customer/Home/Buy');
         }
-        return url.replace(/\/BuyIn(?:\?.*)?$/i, '/Buy');
+
+        const url = cfg.apiUrl || DEFAULT_API_CONFIG.apiUrl;
+        return isBatch ? url.replace(/\/Buy(?:\?.*)?$/i, '/BuyIn') : url.replace(/\/BuyIn(?:\?.*)?$/i, '/Buy');
     }
 
     function buildFensiBuyPayload(item, cfg, purchaseType) {
@@ -1299,6 +1357,7 @@
             const options = { method };
 
             if (isFensiBuyMode(cfg)) {
+                options.headers = getProxyHeaders();
                 const payload = buildFensiBuyPayload(item, cfg, submitType);
                 if (method === 'GET') {
                     const params = new URLSearchParams();
@@ -1306,7 +1365,7 @@
                     const joiner = url.includes('?') ? '&' : '?';
                     url = url + joiner + params.toString();
                 } else {
-                    options.headers = { 'Content-Type': 'application/json;charset=UTF-8' };
+                    options.headers = getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' });
                     options.body = JSON.stringify(payload);
                 }
             } else {
@@ -1446,6 +1505,7 @@
             const method = String(cfg.apiMethod || 'POST').toUpperCase();
             let url = getFensiEndpointUrl(effectiveCfg, true);
             const options = { method };
+            options.headers = getProxyHeaders();
 
             if (method === 'GET') {
                 const params = new URLSearchParams();
@@ -1453,7 +1513,7 @@
                 const joiner = url.includes('?') ? '&' : '?';
                 url = url + joiner + params.toString();
             } else {
-                options.headers = { 'Content-Type': 'application/json;charset=UTF-8' };
+                options.headers = getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' });
                 options.body = JSON.stringify(payload);
             }
 

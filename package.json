@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node fensi_proxy_server.js"
+    "start": "node fensi_proxy_server.js",
+    "worker:deploy": "wrangler deploy"
   }
 }

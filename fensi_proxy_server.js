@@ -20,7 +20,7 @@ function send(res, status, body, contentType = 'application/json;charset=utf-8')
     res.writeHead(status, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Proxy-Password, X-Fensi-Auth',
         'Content-Type': contentType
     });
     res.end(body);

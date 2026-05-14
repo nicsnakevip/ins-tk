@@ -1,0 +1,7 @@
+name = "ins-tk-proxy"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-05-15"
+
+[vars]
+# Set the real value with:
+# wrangler secret put PROXY_PASSWORD
