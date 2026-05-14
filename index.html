@@ -770,16 +770,22 @@
     }
 
     function saveApiConfig() {
+        saveApiConfigFromPage(false);
+        loadApiConfigToPage();
+        syncInsProjectTemplate(false);
+        showToast('API配置已保存');
+        setActionStatus('API配置已保存', 'ok');
+    }
+
+    function saveApiConfigFromPage(updatePage) {
         const c = readApiConfigFromPage();
         if ((c.apiMode || 'fensiBuy') === 'fensiBuy') {
             c.proxyBaseUrl = normalizeProxyBase(c.proxyBaseUrl);
             c.apiUrl = buildProxyUrl(c, '/api/customer/Home/BuyIn');
         }
         localStorage.setItem(API_CONFIG_KEY, JSON.stringify(c));
-        loadApiConfigToPage();
-        syncInsProjectTemplate(false);
-        showToast('API配置已保存');
-        setActionStatus('API配置已保存', 'ok');
+        if (updatePage) loadApiConfigToPage();
+        return c;
     }
 
     function resetApiConfig() {
@@ -822,7 +828,7 @@
     }
 
     function getProxyHeaders(extraHeaders) {
-        const cfg = getApiConfig();
+        const cfg = readApiConfigFromPage();
         const headers = Object.assign({}, extraHeaders || {});
         if (cfg.proxyPassword) headers['X-Proxy-Password'] = cfg.proxyPassword;
         if (cfg.fensiAuthToken) headers['X-Fensi-Auth'] = cfg.fensiAuthToken;
@@ -860,6 +866,7 @@
     }
 
     async function loginFensi() {
+        const cfg = saveApiConfigFromPage(false);
         const accountEl = document.getElementById('loginAccount');
         const passwordEl = document.getElementById('loginPassword');
         const account = accountEl ? accountEl.value.trim() : '';
@@ -874,7 +881,7 @@
         setActionStatus('正在登录网站...', 'warn');
 
         try {
-            const res = await fetch(buildProxyUrl(getApiConfig(), '/api/local/Login'), {
+            const res = await fetch(buildProxyUrl(cfg, '/api/local/Login'), {
                 method: 'POST',
                 headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: JSON.stringify({ account, password })
@@ -903,8 +910,9 @@
     }
 
     async function checkFensiLogin(showResult) {
+        const cfg = showResult ? saveApiConfigFromPage(false) : getApiConfig();
         try {
-            const res = await fetch(buildProxyUrl(getApiConfig(), '/api/local/CheckLogin'), {
+            const res = await fetch(buildProxyUrl(cfg, '/api/local/CheckLogin'), {
                 method: 'POST',
                 headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: '{}'
@@ -931,8 +939,9 @@
     }
 
     async function logoutFensi() {
+        const cfg = saveApiConfigFromPage(false);
         try {
-            await fetch(buildProxyUrl(getApiConfig(), '/api/local/Logout'), {
+            await fetch(buildProxyUrl(cfg, '/api/local/Logout'), {
                 method: 'POST',
                 headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: '{}'
