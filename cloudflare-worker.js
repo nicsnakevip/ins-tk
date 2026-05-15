@@ -344,7 +344,7 @@ async function fetchTikTokLatestVideo(username) {
 
   return {
     ok: false,
-    message: 'TikTok 没有返回可用视频链接，请稍后再试，或手动复制视频链接',
+    message: 'TikTok 当前没有向转发服务返回作品列表，需要手动复制视频链接',
     candidates
   };
 }

@@ -230,6 +230,10 @@
             background: #13a86b;
         }
 
+        .open-row-btn {
+            background: #ff8a00;
+        }
+
         .account-input-row .row-btn {
             width: 64px;
             font-size: 14px;
@@ -719,6 +723,7 @@
     <div class="input-row account-input-row">
         <input type="text" id="insProfileVal" placeholder="ins主页/账号，提取最新视频">
         <button class="row-btn save-account-btn" onclick="saveAccountFromInput('ins')">保存</button>
+        <button class="row-btn open-row-btn" onclick="openProfile('ins')">打开</button>
         <button class="row-btn fetch-row-btn" onclick="fetchLatestVideo('ins')">提取</button>
     </div>
     <div class="saved-account-row" id="insAccountList"></div>
@@ -731,6 +736,7 @@
     <div class="input-row account-input-row">
         <input type="text" id="tkProfileVal" placeholder="tk主页/账号，提取最新视频">
         <button class="row-btn save-account-btn" onclick="saveAccountFromInput('tk')">保存</button>
+        <button class="row-btn open-row-btn" onclick="openProfile('tk')">打开</button>
         <button class="row-btn fetch-row-btn" onclick="fetchLatestVideo('tk')">提取</button>
     </div>
     <div class="saved-account-row" id="tkAccountList"></div>
@@ -1737,6 +1743,21 @@
         showToast('账号已填入');
     }
 
+    function openProfile(platform) {
+        const isTk = platform === 'tk';
+        const input = document.getElementById(isTk ? 'tkProfileVal' : 'insProfileVal');
+        const value = normalizeAccountValue(platform, input ? input.value : '');
+        if (!value) {
+            showToast(isTk ? '请输入TK账号' : '请输入INS账号');
+            return;
+        }
+
+        const url = isTk
+            ? `https://www.tiktok.com/@${encodeURIComponent(value)}`
+            : `https://www.instagram.com/${encodeURIComponent(value)}/`;
+        window.open(url, '_blank', 'noopener');
+    }
+
     function deleteSavedAccount(event, platform, idx) {
         if (event) event.stopPropagation();
         const data = getSavedAccounts();
@@ -1802,6 +1823,10 @@
             }
 
             showToast('提取失败');
+            if (isTk) {
+                setActionStatus(`提取失败：${msg}。可以点“打开”进入TK主页，复制最新视频链接后粘贴到TK输入框确认。`, 'fail');
+                return;
+            }
             setActionStatus('提取失败：' + msg, 'fail');
         } catch (e) {
             const msg = `提取失败：转发服务不可用或 ${isTk ? 'TikTok' : 'Instagram'} 临时拦截`;
