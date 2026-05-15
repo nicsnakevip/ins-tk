@@ -290,12 +290,56 @@ function itemToInstagramCandidate(item) {
     if (!shortcode) return null;
 
     const type = item.product_type === 'clips' ? 'reel' : 'p';
+    const coverUrl = getSmallCoverUrl(item);
     return {
         url: `https://www.instagram.com/${type}/${shortcode}/`,
+        coverUrl,
         shortcode,
         type,
         caption: item.caption && item.caption.text ? String(item.caption.text).slice(0, 120) : ''
     };
+}
+
+function getSmallCoverUrl(item) {
+    if (!item || typeof item !== 'object') return '';
+
+    const direct = pickSmallImageCandidate(item.image_versions2);
+    if (direct) return direct;
+
+    if (Array.isArray(item.carousel_media)) {
+        const videoChild = item.carousel_media.find(child => Number(child.media_type) === 2 || Array.isArray(child.video_versions));
+        const childCover = pickSmallImageCandidate(videoChild && videoChild.image_versions2);
+        if (childCover) return childCover;
+
+        const anyChild = item.carousel_media.find(child => child && child.image_versions2);
+        const anyCover = pickSmallImageCandidate(anyChild && anyChild.image_versions2);
+        if (anyCover) return anyCover;
+    }
+
+    return '';
+}
+
+function pickSmallImageCandidate(imageVersions) {
+    if (!imageVersions || typeof imageVersions !== 'object') return '';
+
+    const candidates = [];
+    if (Array.isArray(imageVersions.candidates)) candidates.push(...imageVersions.candidates);
+
+    const additional = imageVersions.additional_candidates || {};
+    Object.keys(additional).forEach(key => {
+        if (additional[key] && additional[key].url) candidates.push(additional[key]);
+    });
+
+    const withUrl = candidates
+        .filter(candidate => candidate && candidate.url)
+        .sort((a, b) => {
+            const aw = Number(a.width || 9999);
+            const bw = Number(b.width || 9999);
+            return aw - bw;
+        });
+
+    const smallEnough = withUrl.find(candidate => Number(candidate.width || 0) >= 140) || withUrl[0];
+    return smallEnough ? smallEnough.url : '';
 }
 
 function extractInstagramCandidatesFromHtml(html) {
@@ -388,6 +432,7 @@ const server = http.createServer(async (req, res) => {
                     data: {
                         username,
                         url: result.url,
+                        coverUrl: result.coverUrl || '',
                         shortcode: result.shortcode,
                         source: result.source,
                         candidates: result.candidates || []

@@ -219,6 +219,27 @@
             background: #f0f7ff;
         }
 
+        .record-item.has-cover {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .record-thumb {
+            width: 46px;
+            height: 46px;
+            flex: 0 0 46px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #f1f3f5;
+        }
+
+        .record-body {
+            flex: 1;
+            min-width: 0;
+        }
+
         .status {
             display: inline-block;
             margin-top: 5px;
@@ -1127,14 +1148,17 @@
         return `${d.getMonth() + 1}.${d.getDate()}`;
     }
 
-    function addLinkRecord(type, val) {
+    function addLinkRecord(type, val, meta) {
         const actualType = type === 'ins' ? 'ins' : type;
+        const extra = meta && typeof meta === 'object' ? meta : {};
         const list = getList();
         const item = {
             time: Date.now(),
             date: getDate(),
             type: actualType,
             content: val,
+            coverUrl: extra.coverUrl || '',
+            sourceUsername: extra.sourceUsername || '',
             apiStatus: 'local',
             apiMsg: '已本地保存，尚未提交API',
             apiResponse: ''
@@ -1184,11 +1208,16 @@
             });
             const result = await readJsonResponse(res);
             const data = result.data || {};
-            const link = data && data.data && data.data.url ? data.data.url : '';
+            const info = data && data.data ? data.data : {};
+            const link = info.url || '';
+            const coverUrl = info.coverUrl || '';
             const msg = (data && (data.message || data.msg)) || result.text || '提取接口已返回';
 
             if (res.ok && Number(data.code) === 0 && link) {
-                addLinkRecord('ins', link);
+                addLinkRecord('ins', link, {
+                    coverUrl,
+                    sourceUsername: info.username || ''
+                });
                 if (input) input.value = '';
                 setActionStatus(`${msg}：${link}`, 'ok');
                 return;
@@ -1690,12 +1719,18 @@
             const status = getStatusText(info.apiStatus);
             const order = info.orderId ? `<div style="font-size:11px;color:#888;margin-top:3px;">订单：${escapeHtml(info.orderId)}</div>` : '';
             const buyInfo = info.buyNumber ? `<div style="font-size:11px;color:#888;margin-top:3px;">数量：${escapeHtml(info.buyNumber)}</div>` : '';
+            const cover = item.coverUrl
+                ? `<img class="record-thumb" src="${escapeHtml(item.coverUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+                : '';
             const itemHtml = `
-                <div class="record-item" onclick="openEdit(${idx})">
-                    <div>${safeDate} ${safeType}</div>
-                    <span class="status ${status.cls}">${status.text}</span>
-                    ${buyInfo}
-                    ${order}
+                <div class="record-item${cover ? ' has-cover' : ''}" onclick="openEdit(${idx})">
+                    ${cover}
+                    <div class="record-body">
+                        <div>${safeDate} ${safeType}</div>
+                        <span class="status ${status.cls}">${status.text}</span>
+                        ${buyInfo}
+                        ${order}
+                    </div>
                 </div>`;
 
             if (isInsRecordType(item.type)) {
@@ -1816,6 +1851,10 @@
             return;
         }
 
+        if (list[currentEditIndex].content !== content) {
+            list[currentEditIndex].coverUrl = '';
+            list[currentEditIndex].sourceUsername = '';
+        }
         list[currentEditIndex].date = date;
         list[currentEditIndex].content = content;
         saveList(list);
@@ -1846,6 +1885,10 @@
             return;
         }
 
+        if (list[idx].content !== content) {
+            list[idx].coverUrl = '';
+            list[idx].sourceUsername = '';
+        }
         list[idx].date = date;
         list[idx].content = content;
         saveList(list);
