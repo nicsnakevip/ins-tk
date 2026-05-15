@@ -911,11 +911,14 @@
         currentTkProjectType = getSelectedTkProjectType();
         syncUnifiedProjectTemplate(false);
         clearOverdueRecord();
+        resetExpiredDailyOrderSuccess();
         renderSavedAccounts();
         fillLastSavedAccounts();
         handleBatchLimitChange(false);
         renderAll();
-        checkFensiLogin(false);
+        checkFensiLogin(false).then(login => {
+            if (login.ok) refreshSubmittedOrderStatus(false);
+        });
     };
 
     function getList() {
@@ -1109,6 +1112,21 @@
         return Number.isFinite(num) && num >= 0 ? num : null;
     }
 
+    function getTodayKey() {
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${now.getFullYear()}-${month}-${day}`;
+    }
+
+    function isTodayOrderSuccess(info) {
+        return Boolean(info && info.apiStatus === 'order_success' && info.orderVerifiedDate === getTodayKey());
+    }
+
+    function isSubmittedStatus(status) {
+        return status === 'success' || status === 'order_success';
+    }
+
     function findNumberByKeys(obj, keys) {
         const keySet = new Set(keys.map(key => key.toLowerCase()));
         const seen = new Set();
@@ -1228,7 +1246,7 @@
                 if (!row.item || !row.item.content) return false;
                 return isTk ? isTkRecordType(row.item.type) : isInsRecordType(row.item.type);
             })
-            .filter(row => getPurchaseInfo(row.item, type).apiStatus !== 'success');
+            .filter(row => !isSubmittedStatus(getPurchaseInfo(row.item, type).apiStatus));
     }
 
     function getEstimatedCostLabel(type, cfg, rows) {
@@ -2231,6 +2249,7 @@
     }
 
     async function submitItemByIndex(idx, purchaseType) {
+        resetExpiredDailyOrderSuccess();
         const list = getList();
         const item = list[idx];
         if (!item) return;
@@ -2244,7 +2263,10 @@
             setPurchaseResult(item, submitType, {
                 apiStatus: 'fail',
                 apiMsg: check.msg,
-                apiResponse: check.msg
+                apiResponse: check.msg,
+                orderVerifiedDate: '',
+                orderCheckedAt: '',
+                orderStatus: ''
             });
             saveList(list);
             renderAll();
@@ -2255,7 +2277,10 @@
         setPurchaseResult(item, submitType, {
             apiStatus: 'pending',
             apiMsg: '提交中',
-            apiResponse: ''
+            apiResponse: '',
+            orderVerifiedDate: '',
+            orderCheckedAt: '',
+            orderStatus: ''
         });
         saveList(list);
         renderAll();
@@ -2314,13 +2339,19 @@
                 apiResponse: text || parsed.msg,
                 orderId: parsed.orderId || previousInfo.orderId || '',
                 buyNumber: item.__buyNumber || previousInfo.buyNumber || '',
-                amount: parsed.amount !== null && parsed.amount !== undefined ? parsed.amount : (estimatedAmount !== null ? estimatedAmount : previousInfo.amount || '')
+                amount: parsed.amount !== null && parsed.amount !== undefined ? parsed.amount : (estimatedAmount !== null ? estimatedAmount : previousInfo.amount || ''),
+                orderVerifiedDate: '',
+                orderCheckedAt: '',
+                orderStatus: ''
             });
 
             saveList(finalList);
             renderAll();
             showToast(parsed.msg);
-            if (parsed.ok && isFensiBuyMode(cfg)) checkFensiLogin(false);
+            if (parsed.ok && isFensiBuyMode(cfg)) {
+                await refreshSubmittedOrderStatus(false, [{ idx, item: finalItem }], submitType);
+                checkFensiLogin(false);
+            }
         } catch (e) {
             const finalList = getList();
             const finalItem = finalList[idx];
@@ -2329,7 +2360,10 @@
             setPurchaseResult(finalItem, submitType, {
                 apiStatus: 'fail',
                 apiMsg: '提交失败：' + (e && e.message ? e.message : '可能是跨域/CORS、接口地址错误、或网络问题'),
-                apiResponse: String(e && e.message ? e.message : e)
+                apiResponse: String(e && e.message ? e.message : e),
+                orderVerifiedDate: '',
+                orderCheckedAt: '',
+                orderStatus: ''
             });
             saveList(finalList);
             renderAll();
@@ -2338,6 +2372,7 @@
     }
 
     async function submitBatchByType(type) {
+        resetExpiredDailyOrderSuccess();
         const purchaseType = resolveBatchType(type);
         const typeLabel = getTypeLabel(purchaseType);
         const inputLabel = type === 'ins' ? 'INS' : 'TK';
@@ -2361,7 +2396,7 @@
                 if (!row.item || !row.item.content) return false;
                 return type === 'ins' ? isInsRecordType(row.item.type) : isTkRecordType(row.item.type);
             });
-        const pendingRows = allRows.filter(row => getPurchaseInfo(row.item, purchaseType).apiStatus !== 'success');
+        const pendingRows = allRows.filter(row => !isSubmittedStatus(getPurchaseInfo(row.item, purchaseType).apiStatus));
         let limitInfo = applyBatchLimitToRows(pendingRows);
         if (!limitInfo.ok) {
             showToast(limitInfo.msg);
@@ -2427,7 +2462,10 @@
             const pendingFields = {
                 apiStatus: 'pending',
                 apiMsg: '批量提交中',
-                apiResponse: ''
+                apiResponse: '',
+                orderVerifiedDate: '',
+                orderCheckedAt: '',
+                orderStatus: ''
             };
             if (isResubmit) pendingFields.orderId = '';
             setPurchaseResult(row.item, purchaseType, pendingFields);
@@ -2475,7 +2513,10 @@
                     apiResponse: text || parsed.msg,
                     orderId: parsed.orderId || previousInfo.orderId || '',
                     buyNumber: row.item.__buyNumber || previousInfo.buyNumber || '',
-                    amount: finalAmount !== null && finalAmount !== undefined ? finalAmount : previousInfo.amount || ''
+                    amount: finalAmount !== null && finalAmount !== undefined ? finalAmount : previousInfo.amount || '',
+                    orderVerifiedDate: '',
+                    orderCheckedAt: '',
+                    orderStatus: ''
                 });
                 item.batchCount = targets.length;
             });
@@ -2485,7 +2526,10 @@
             showToast(parsed.msg);
             const amountText = finalAmount !== null && finalAmount !== undefined ? `\n下单费用：${formatMoney(finalAmount, 4)}` : '';
             setActionStatus(parsed.msg + amountText + (text ? '\n接口返回：' + text.slice(0, 500) : ''), parsed.ok ? 'ok' : 'fail');
-            if (parsed.ok) checkFensiLogin(false);
+            if (parsed.ok) {
+                await refreshSubmittedOrderStatus(false, targets.map(row => ({ idx: row.idx, item: finalList[row.idx] })), purchaseType);
+                checkFensiLogin(false);
+            }
         } catch (e) {
             const finalList = getList();
             const errMsg = '批量提交失败：' + (e && e.message ? e.message : '可能是跨域/CORS、接口地址错误、或网络问题');
@@ -2495,7 +2539,10 @@
                 setPurchaseResult(item, purchaseType, {
                     apiStatus: 'fail',
                     apiMsg: errMsg,
-                    apiResponse: String(e && e.message ? e.message : e)
+                    apiResponse: String(e && e.message ? e.message : e),
+                    orderVerifiedDate: '',
+                    orderCheckedAt: '',
+                    orderStatus: ''
                 });
             });
             saveList(finalList);
@@ -2503,6 +2550,191 @@
             showToast('批量提交失败');
             setActionStatus(errMsg, 'fail');
         }
+    }
+
+    function extractOrderInfos(data) {
+        const candidates = [
+            data && data.infos,
+            data && data.list,
+            data && data.rows,
+            data && data.data && data.data.infos,
+            data && data.data && data.data.list,
+            data && data.data && data.data.rows
+        ];
+        return candidates.find(Array.isArray) || [];
+    }
+
+    function getOrderIdFromOrder(order) {
+        if (!order || typeof order !== 'object') return '';
+        return order.id || order.order || order.order_id || order.orderid || order.sn || '';
+    }
+
+    function getOrderAmountFromOrder(order) {
+        if (!order || typeof order !== 'object') return null;
+        return extractOrderAmount(order);
+    }
+
+    function getOrderStatusLabel(status) {
+        const labels = {
+            1: '已付款',
+            2: '待处理',
+            3: '处理中',
+            4: '补单中',
+            5: '退单中',
+            6: '已完成',
+            7: '已退单',
+            8: '已退款',
+            9: '有异常'
+        };
+        const key = Number(status);
+        return labels[key] || '';
+    }
+
+    function isBackendOrderSuccessful(order) {
+        if (!order || typeof order !== 'object') return false;
+        const status = Number(order.status);
+        if (!Number.isFinite(status)) return true;
+        return ![7, 8, 9].includes(status);
+    }
+
+    function orderContainsLink(order, link) {
+        const target = String(link || '').trim();
+        if (!target) return false;
+        return JSON.stringify(order || {}).includes(target);
+    }
+
+    async function fetchFensiOrderPage(cfg, payload) {
+        const res = await fetch(buildProxyUrl(cfg, '/api/customer/Order/Paging'), {
+            method: 'POST',
+            headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
+            body: JSON.stringify(payload)
+        });
+        const result = await readJsonResponse(res);
+        const data = result.data;
+
+        if (data && Number(data.code) === 100) {
+            clearFensiAuthToken();
+            clearAccountBalance();
+        }
+
+        return {
+            ok: res.ok && data && Number(data.code) === 0,
+            data,
+            text: result.text,
+            infos: extractOrderInfos(data)
+        };
+    }
+
+    async function findBackendOrderForRow(row, purchaseType, cfg, allowContentSearch) {
+        const item = row && row.item;
+        if (!item) return null;
+
+        const info = getPurchaseInfo(item, purchaseType);
+        const orderId = info.orderId || item.orderId || '';
+        if (orderId) {
+            const found = await fetchFensiOrderPage(cfg, {
+                id: normalizeMaybeNumber(orderId),
+                list_rows: 1,
+                page: 1
+            });
+            const order = found.infos.find(o => String(getOrderIdFromOrder(o)) === String(orderId)) || found.infos[0];
+            return isBackendOrderSuccessful(order) ? order : null;
+        }
+
+        if (!allowContentSearch) return null;
+
+        const found = await fetchFensiOrderPage(cfg, {
+            buy_params: item.content,
+            list_rows: 5,
+            page: 1
+        });
+        const order = found.infos.find(o => orderContainsLink(o, item.content));
+        return isBackendOrderSuccessful(order) ? order : null;
+    }
+
+    function markOrderSuccess(list, idx, purchaseType, order) {
+        const item = list[idx];
+        if (!item) return false;
+
+        const previousInfo = getPurchaseInfo(item, purchaseType);
+        const orderId = getOrderIdFromOrder(order) || previousInfo.orderId || '';
+        const amount = getOrderAmountFromOrder(order);
+        const statusLabel = getOrderStatusLabel(order && order.status);
+        const msg = statusLabel ? `订单成功：后台状态 ${statusLabel}` : '订单成功：后台已检测到订单';
+
+        setPurchaseResult(item, purchaseType, {
+            apiStatus: 'order_success',
+            apiMsg: msg,
+            orderId,
+            orderStatus: order && order.status !== undefined ? order.status : '',
+            orderCheckedAt: new Date().toISOString(),
+            orderVerifiedDate: getTodayKey(),
+            amount: amount !== null ? amount : previousInfo.amount || '',
+            buyNumber: (order && order.buy_number) || previousInfo.buyNumber || '',
+            apiResponse: previousInfo.apiResponse || JSON.stringify(order || {}).slice(0, 1000)
+        });
+        return true;
+    }
+
+    async function refreshSubmittedOrderStatus(showResult, targetRows, forcedPurchaseType) {
+        const cfg = getApiConfig();
+        if (!isFensiBuyMode(cfg) || !cfg.fensiAuthToken) {
+            if (showResult) {
+                const msg = '请先登录网站，再检测订单状态';
+                showToast(msg);
+                setActionStatus(msg, 'fail');
+            }
+            return { checked: 0, verified: 0 };
+        }
+
+        const list = getList();
+        const allowContentSearch = Array.isArray(targetRows);
+        const rows = allowContentSearch
+            ? targetRows
+            : list.flatMap((item, idx) => {
+                if (!item) return [];
+                if (item.apiByProject && typeof item.apiByProject === 'object') {
+                    return Object.keys(item.apiByProject).map(purchaseType => ({ item, idx, purchaseType }));
+                }
+                return [{ item, idx, purchaseType: getRecordPurchaseType(item) }];
+            }).filter(row => {
+                const purchaseType = forcedPurchaseType || row.purchaseType || getRecordPurchaseType(row.item);
+                const info = getPurchaseInfo(row.item, purchaseType);
+                return isSubmittedStatus(info.apiStatus) && !isTodayOrderSuccess(info) && Boolean(info.orderId);
+            });
+
+        let checked = 0;
+        let verified = 0;
+
+        for (const row of rows) {
+            if (!row || row.idx === undefined || !list[row.idx]) continue;
+            const purchaseType = forcedPurchaseType || row.purchaseType || getRecordPurchaseType(list[row.idx]);
+            const info = getPurchaseInfo(list[row.idx], purchaseType);
+            if (!isSubmittedStatus(info.apiStatus) || isTodayOrderSuccess(info)) continue;
+
+            checked += 1;
+            try {
+                const order = await findBackendOrderForRow({ item: list[row.idx], idx: row.idx }, purchaseType, cfg, allowContentSearch);
+                if (order && markOrderSuccess(list, row.idx, purchaseType, order)) {
+                    verified += 1;
+                }
+            } catch (e) {
+                console.warn('订单后台检测失败：', e);
+            }
+        }
+
+        if (verified > 0) {
+            saveList(list);
+            renderAll();
+        }
+
+        if (showResult) {
+            const msg = checked ? `已检测 ${checked} 条，确认订单成功 ${verified} 条` : '暂无需要检测的已提交订单';
+            showToast(msg);
+            setActionStatus(msg, verified ? 'ok' : 'warn');
+        }
+
+        return { checked, verified };
     }
 
     function parseApiResult(httpOk, text, data, cfg) {
@@ -2560,6 +2792,7 @@
     }
 
     function renderAll() {
+        resetExpiredDailyOrderSuccess();
         const list = getList();
         let insHtml = '';
         let tkHtml = '';
@@ -2569,7 +2802,7 @@
             const safeType = escapeHtml(getRecordLabel(item.type));
             const purchaseType = getRecordPurchaseType(item);
             const info = getPurchaseInfo(item, purchaseType);
-            const status = getStatusText(info.apiStatus);
+            const status = getStatusText(info.apiStatus, info);
             const order = info.orderId ? `<div style="font-size:11px;color:#888;margin-top:3px;">订单：${escapeHtml(info.orderId)}</div>` : '';
             const buyInfo = info.buyNumber ? `<div style="font-size:11px;color:#888;margin-top:3px;">数量：${escapeHtml(info.buyNumber)}</div>` : '';
             const amountInfo = info.amount !== undefined && info.amount !== null && info.amount !== ''
@@ -2604,12 +2837,18 @@
 
     function getRecordPurchaseType(item) {
         if (!item) return 'ins';
+        if (item.lastPurchaseType) {
+            if (isInsRecordType(item.type) && isInsRecordType(item.lastPurchaseType)) return item.lastPurchaseType;
+            if (isTkRecordType(item.type) && isTkRecordType(item.lastPurchaseType)) return item.lastPurchaseType;
+        }
         if (isInsRecordType(item.type)) return getSelectedInsProjectType();
         if (isTkRecordType(item.type)) return getSelectedTkProjectType();
         return item.type;
     }
 
-    function getStatusText(status) {
+    function getStatusText(status, info) {
+        if (status === 'order_success' && isTodayOrderSuccess(info)) return { text: '订单成功', cls: 'status-success' };
+        if (status === 'order_success') return { text: '已提交', cls: 'status-success' };
         if (status === 'success') return { text: '已提交', cls: 'status-success' };
         if (status === 'fail') return { text: '提交失败', cls: 'status-fail' };
         if (status === 'pending') return { text: '提交中', cls: 'status-pending' };
@@ -2617,7 +2856,7 @@
     }
 
     function getPurchaseInfo(item, purchaseType) {
-        if (!item) return { apiStatus: 'local', apiMsg: '', apiResponse: '', orderId: '', buyNumber: '', amount: '' };
+        if (!item) return { apiStatus: 'local', apiMsg: '', apiResponse: '', orderId: '', buyNumber: '', amount: '', orderVerifiedDate: '', orderCheckedAt: '', orderStatus: '' };
 
         if (item.apiByProject) {
             if (item.apiByProject[purchaseType]) {
@@ -2627,7 +2866,10 @@
                     apiResponse: '',
                     orderId: '',
                     buyNumber: '',
-                    amount: ''
+                    amount: '',
+                    orderVerifiedDate: '',
+                    orderCheckedAt: '',
+                    orderStatus: ''
                 }, item.apiByProject[purchaseType]);
             }
 
@@ -2637,7 +2879,10 @@
                 apiResponse: '',
                 orderId: '',
                 buyNumber: '',
-                amount: ''
+                amount: '',
+                orderVerifiedDate: '',
+                orderCheckedAt: '',
+                orderStatus: ''
             };
         }
 
@@ -2648,11 +2893,14 @@
                 apiResponse: item.apiResponse || '',
                 orderId: item.orderId || '',
                 buyNumber: item.buyNumber || '',
-                amount: item.amount || ''
+                amount: item.amount || '',
+                orderVerifiedDate: item.orderVerifiedDate || '',
+                orderCheckedAt: item.orderCheckedAt || '',
+                orderStatus: item.orderStatus || ''
             };
         }
 
-        return { apiStatus: 'local', apiMsg: '已本地保存，尚未提交API', apiResponse: '', orderId: '', buyNumber: '', amount: '' };
+        return { apiStatus: 'local', apiMsg: '已本地保存，尚未提交API', apiResponse: '', orderId: '', buyNumber: '', amount: '', orderVerifiedDate: '', orderCheckedAt: '', orderStatus: '' };
     }
 
     function setPurchaseResult(item, purchaseType, fields) {
@@ -2668,7 +2916,10 @@
                         apiResponse: item.apiResponse || '',
                         orderId: item.orderId || '',
                         buyNumber: item.buyNumber || '',
-                        amount: item.amount || ''
+                        amount: item.amount || '',
+                        orderVerifiedDate: item.orderVerifiedDate || '',
+                        orderCheckedAt: item.orderCheckedAt || '',
+                        orderStatus: item.orderStatus || ''
                     };
                 }
             }
@@ -2794,10 +3045,11 @@
         if (event.target.id === 'modalMask') closeModal();
     }
 
-    function manualClearOverdue() {
+    async function manualClearOverdue() {
         clearOverdueRecord();
         renderAll();
-        showToast('已清理7天外记录');
+        showToast('正在刷新');
+        await refreshSubmittedOrderStatus(true);
     }
 
     function clearAllRecord() {
@@ -2821,6 +3073,33 @@
         const now = Date.now();
         const arr = getList().filter(item => item && typeof item.time === 'number' && now - item.time < SEVEN_DAY);
         saveList(arr);
+    }
+
+    function resetExpiredDailyOrderSuccess() {
+        const today = getTodayKey();
+        const list = getList();
+        let changed = false;
+
+        function resetInfo(info) {
+            if (!info || info.apiStatus !== 'order_success' || info.orderVerifiedDate === today) return false;
+            info.apiStatus = 'success';
+            info.apiMsg = '已提交，等待今日后台检测';
+            info.orderVerifiedDate = '';
+            info.orderCheckedAt = '';
+            return true;
+        }
+
+        list.forEach(item => {
+            if (!item) return;
+            if (resetInfo(item)) changed = true;
+            if (item.apiByProject && typeof item.apiByProject === 'object') {
+                Object.keys(item.apiByProject).forEach(type => {
+                    if (resetInfo(item.apiByProject[type])) changed = true;
+                });
+            }
+        });
+
+        if (changed) saveList(list);
     }
 
     async function copy(text) {

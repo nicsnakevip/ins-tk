@@ -4,6 +4,7 @@ const ALLOWED_PATHS = new Set([
   '/api/customer/Home/GetGoods',
   '/api/customer/Home/Buy',
   '/api/customer/Home/BuyIn',
+  '/api/customer/Order/Paging',
   '/api/local/Login',
   '/api/local/CheckLogin',
   '/api/local/LastResult',
@@ -140,7 +141,11 @@ export default {
         return sendUpstream(upstream);
       }
 
-      if ((url.pathname === '/api/customer/Home/Buy' || url.pathname === '/api/customer/Home/BuyIn') && !authToken) {
+      if ((
+        url.pathname === '/api/customer/Home/Buy' ||
+        url.pathname === '/api/customer/Home/BuyIn' ||
+        url.pathname === '/api/customer/Order/Paging'
+      ) && !authToken) {
         return sendJson({ code: 100, message: '请先在本页面登录网站，再提交购买' });
       }
 
