@@ -5,5 +5,8 @@
   "scripts": {
     "start": "node fensi_proxy_server.js",
     "worker:deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/puppeteer": "^1.1.0"
   }
 }

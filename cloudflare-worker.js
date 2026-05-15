@@ -1,3 +1,5 @@
+import puppeteer from '@cloudflare/puppeteer';
+
 const ALLOWED_PATHS = new Set([
   '/api/customer/Home/GetGoods',
   '/api/customer/Home/Buy',
@@ -87,7 +89,7 @@ export default {
           return sendJson({ code: 1, message: '请输入正确的TK主页链接或账号名' }, 400);
         }
 
-        const result = await fetchTikTokLatestVideo(username);
+        const result = await fetchTikTokLatestVideo(username, env);
         if (result.ok) {
           return sendJson({
             code: 0,
@@ -317,7 +319,104 @@ function normalizeTikTokUsername(raw) {
   return /^[A-Za-z0-9._]{1,30}$/.test(value) ? value : '';
 }
 
-async function fetchTikTokLatestVideo(username) {
+async function fetchTikTokLatestVideo(username, env) {
+  const browserResult = await fetchTikTokLatestVideoWithBrowser(username, env);
+  if (browserResult.ok) return browserResult;
+
+  const staticResult = await fetchTikTokLatestVideoFromProfile(username);
+  if (staticResult.ok) return staticResult;
+
+  if (browserResult.tried) {
+    return Object.assign({}, staticResult, {
+      message: browserResult.message || staticResult.message
+    });
+  }
+
+  return staticResult;
+}
+
+async function fetchTikTokLatestVideoWithBrowser(username, env) {
+  if (!env || !env.MYBROWSER) {
+    return {
+      ok: false,
+      tried: false,
+      message: '浏览器提取未启用',
+      candidates: []
+    };
+  }
+
+  let browser;
+  try {
+    browser = await puppeteer.launch(env.MYBROWSER);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900 });
+    await page.setUserAgent(getTikTokHeaders(username)['User-Agent']);
+
+    const profileUrl = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
+    const response = await page.goto(profileUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+
+    await page.waitForSelector('body', { timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('a[href*="/video/"]', { timeout: 8000 }).catch(() => {});
+
+    const pageData = await page.evaluate(() => {
+      const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]')).map(anchor => {
+        const img = anchor.querySelector('img');
+        const source = anchor.querySelector('source');
+        const srcset = source && source.srcset ? source.srcset.split(',')[0].trim().split(/\s+/)[0] : '';
+        return {
+          href: anchor.href || '',
+          coverUrl: (img && (img.currentSrc || img.src)) || srcset || ''
+        };
+      });
+
+      return {
+        statusText: document.body ? document.body.innerText.slice(0, 1000) : '',
+        title: document.title || '',
+        anchors,
+        scripts: Array.from(document.scripts).map(script => script.textContent || '').join('\n')
+      };
+    });
+
+    const candidates = extractTikTokCandidatesFromBrowserData(pageData, username);
+    if (candidates.length) {
+      return {
+        ok: true,
+        tried: true,
+        message: '已用浏览器提取最新TK视频链接',
+        source: 'browser',
+        candidates,
+        ...candidates[0]
+      };
+    }
+
+    const status = response ? `HTTP ${response.status()}` : '页面无响应';
+    const blocked = /captcha|verify|robot|unusual|验证码|验证|安全/i.test(`${pageData.title}\n${pageData.statusText}`);
+    return {
+      ok: false,
+      tried: true,
+      message: blocked
+        ? `浏览器打开TK主页失败：页面触发验证（${status}）`
+        : `浏览器打开TK主页后没有找到视频链接（${status}）`,
+      candidates: []
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      tried: true,
+      message: `浏览器提取失败：${cleanErrorMessage(e)}`,
+      candidates: []
+    };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+}
+
+async function fetchTikTokLatestVideoFromProfile(username) {
   const response = await fetch(`https://www.tiktok.com/@${encodeURIComponent(username)}`, {
     headers: getTikTokHeaders(username)
   });
@@ -347,6 +446,47 @@ async function fetchTikTokLatestVideo(username) {
     message: 'TikTok 当前没有向转发服务返回作品列表，需要手动复制视频链接',
     candidates
   };
+}
+
+function extractTikTokCandidatesFromBrowserData(data, username) {
+  const seen = new Set();
+  const candidates = [];
+
+  for (const item of (data && data.anchors) || []) {
+    const parsed = parseTikTokVideoUrl(item.href, username);
+    if (!parsed || seen.has(parsed.videoId)) continue;
+    seen.add(parsed.videoId);
+    candidates.push({
+      ...parsed,
+      coverUrl: cleanMediaUrl(item.coverUrl || '')
+    });
+  }
+
+  const textCandidates = extractTikTokCandidatesFromHtml(`${(data && data.scripts) || ''}\n${JSON.stringify((data && data.anchors) || [])}`, username);
+  for (const item of textCandidates) {
+    if (seen.has(item.videoId)) continue;
+    seen.add(item.videoId);
+    candidates.push(item);
+  }
+
+  return candidates;
+}
+
+function parseTikTokVideoUrl(value, username) {
+  try {
+    const parsed = new URL(value, 'https://www.tiktok.com');
+    const match = parsed.pathname.match(/^\/@([A-Za-z0-9._]{1,30})\/video\/(\d{5,})/);
+    if (!match) return null;
+    if (username && match[1].toLowerCase() !== String(username).toLowerCase()) return null;
+    return {
+      url: `https://www.tiktok.com/@${match[1]}/video/${match[2]}`,
+      coverUrl: '',
+      videoId: match[2],
+      type: 'video'
+    };
+  } catch (e) {
+    return null;
+  }
 }
 
 function getTikTokHeaders(username) {
@@ -411,6 +551,12 @@ function cleanMediaUrl(value) {
   return decodeEscapedHtml(value)
     .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/\\(.)/g, '$1');
+}
+
+function cleanErrorMessage(error) {
+  return String(error && error.message ? error.message : error || '未知错误')
+    .replace(/\s+/g, ' ')
+    .slice(0, 120);
 }
 
 async function fetchInstagramLatestVideo(username) {
