@@ -182,6 +182,10 @@
             cursor: pointer;
         }
 
+        .fetch-row-btn {
+            background: #13a86b;
+        }
+
         .record-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -554,7 +558,12 @@
     </div>
 
     <div class="input-row">
-        <input type="text" id="insVal" placeholder="ins播放输入链接">
+        <input type="text" id="insProfileVal" placeholder="ins主页/账号，提取最新视频">
+        <button class="row-btn fetch-row-btn" onclick="fetchLatestInsVideo()">提取</button>
+    </div>
+
+    <div class="input-row">
+        <input type="text" id="insVal" placeholder="ins输入链接（播放/点赞通用）">
         <button class="row-btn" onclick="saveAndSubmit('ins')">确认</button>
     </div>
 
@@ -1118,17 +1127,8 @@
         return `${d.getMonth() + 1}.${d.getDate()}`;
     }
 
-    async function saveAndSubmit(type) {
+    function addLinkRecord(type, val) {
         const actualType = type === 'ins' ? 'ins' : type;
-        const project = getProject(actualType);
-        const input = document.getElementById(project.inputId);
-        const val = input.value.trim();
-
-        if (!val) {
-            showToast('请输入内容');
-            return;
-        }
-
         const list = getList();
         const item = {
             time: Date.now(),
@@ -1142,10 +1142,65 @@
 
         list.unshift(item);
         saveList(list);
-        input.value = '';
         renderAll();
         showToast('已加入待购买列表');
         setActionStatus(`${getRecordLabel(actualType)}链接已加入待购买列表：${val}`, 'ok');
+        return item;
+    }
+
+    async function saveAndSubmit(type) {
+        const actualType = type === 'ins' ? 'ins' : type;
+        const project = getProject(actualType);
+        const input = document.getElementById(project.inputId);
+        const val = input.value.trim();
+
+        if (!val) {
+            showToast('请输入内容');
+            return;
+        }
+
+        addLinkRecord(actualType, val);
+        input.value = '';
+    }
+
+    async function fetchLatestInsVideo() {
+        const input = document.getElementById('insProfileVal');
+        const raw = input ? input.value.trim() : '';
+
+        if (!raw) {
+            showToast('请输入INS主页或账号');
+            setActionStatus('请输入INS主页链接或账号名后再提取。', 'fail');
+            return;
+        }
+
+        const cfg = saveApiConfigFromPage(false);
+        setActionStatus('正在提取INS最新视频链接...', 'warn');
+
+        try {
+            const res = await fetch(buildProxyUrl(cfg, '/api/instagram/latest'), {
+                method: 'POST',
+                headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
+                body: JSON.stringify({ profile: raw })
+            });
+            const result = await readJsonResponse(res);
+            const data = result.data || {};
+            const link = data && data.data && data.data.url ? data.data.url : '';
+            const msg = (data && (data.message || data.msg)) || result.text || '提取接口已返回';
+
+            if (res.ok && Number(data.code) === 0 && link) {
+                addLinkRecord('ins', link);
+                if (input) input.value = '';
+                setActionStatus(`${msg}：${link}`, 'ok');
+                return;
+            }
+
+            showToast('提取失败');
+            setActionStatus('提取失败：' + msg, 'fail');
+        } catch (e) {
+            const msg = '提取失败：转发服务不可用或 Instagram 临时拦截';
+            showToast(msg);
+            setActionStatus(msg + '。也可以先手动复制视频链接到INS输入框。', 'fail');
+        }
     }
 
     function isFensiBuyMode(cfg) {

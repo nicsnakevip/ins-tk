@@ -10,7 +10,8 @@ const ALLOWED_PATHS = new Set([
     '/api/local/Login',
     '/api/local/CheckLogin',
     '/api/local/LastResult',
-    '/api/local/Logout'
+    '/api/local/Logout',
+    '/api/instagram/latest'
 ]);
 
 let authToken = '';
@@ -135,6 +136,203 @@ function forwardToFensi(path, method, body, useLogin = false) {
     });
 }
 
+function fetchInstagramUrl(url, acceptType) {
+    return new Promise((resolve, reject) => {
+        const target = new URL(url);
+        const req = https.request({
+            hostname: target.hostname,
+            path: target.pathname + target.search,
+            method: 'GET',
+            headers: getInstagramHeaders(acceptType),
+            timeout: 30000
+        }, upstream => {
+            let data = '';
+            upstream.setEncoding('utf8');
+            upstream.on('data', chunk => data += chunk);
+            upstream.on('end', () => {
+                resolve({
+                    statusCode: upstream.statusCode || 502,
+                    body: data
+                });
+            });
+        });
+
+        req.on('timeout', () => {
+            req.destroy(new Error('请求 Instagram 超时'));
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+function normalizeInstagramUsername(raw) {
+    let value = String(raw || '').trim();
+    if (!value) return '';
+
+    value = value.replace(/^@+/, '').trim();
+
+    try {
+        if (/^https?:\/\//i.test(value)) {
+            const parsed = new URL(value);
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            value = parts[0] || '';
+        }
+    } catch (e) {
+        return '';
+    }
+
+    value = value.replace(/^@+/, '').replace(/\/+$/, '').trim();
+    if (['p', 'reel', 'tv', 'stories', 'explore'].includes(value.toLowerCase())) return '';
+    return /^[A-Za-z0-9._]{1,30}$/.test(value) ? value : '';
+}
+
+async function fetchInstagramLatestVideo(username) {
+    const candidates = [];
+    const feedResult = await fetchInstagramFeed(username);
+
+    if (feedResult.ok) {
+        candidates.push(...feedResult.candidates);
+        if (feedResult.candidates.length) {
+            return {
+                ok: true,
+                message: '已提取INS最新视频链接',
+                source: 'feed',
+                candidates,
+                ...feedResult.candidates[0]
+            };
+        }
+    }
+
+    const htmlResult = await fetchInstagramProfileHtml(username);
+    candidates.push(...htmlResult.candidates);
+    if (htmlResult.candidates.length) {
+        return {
+            ok: true,
+            message: '已从主页提取到INS视频链接',
+            source: 'profile',
+            candidates,
+            ...htmlResult.candidates[0]
+        };
+    }
+
+    const reason = feedResult.message || htmlResult.message || 'Instagram 没有返回可用视频链接';
+    return {
+        ok: false,
+        message: reason.includes('login') || reason.includes('Please wait')
+            ? 'Instagram 临时要求登录或限流，请稍后再试，或手动复制视频链接'
+            : reason,
+        candidates
+    };
+}
+
+async function fetchInstagramFeed(username) {
+    const url = `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=12`;
+    const upstream = await fetchInstagramUrl(url, 'json');
+    const data = safeJsonParse(upstream.body);
+
+    if (upstream.statusCode < 200 || upstream.statusCode >= 300 || !data || data.status === 'fail') {
+        return {
+            ok: false,
+            message: (data && (data.message || data.error)) || `Instagram feed HTTP ${upstream.statusCode}`,
+            candidates: []
+        };
+    }
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    return {
+        ok: true,
+        message: 'ok',
+        candidates: items
+            .filter(itemHasVideo)
+            .map(itemToInstagramCandidate)
+            .filter(Boolean)
+    };
+}
+
+async function fetchInstagramProfileHtml(username) {
+    const url = `https://www.instagram.com/${encodeURIComponent(username)}/`;
+    const upstream = await fetchInstagramUrl(url, 'html');
+
+    if (upstream.statusCode < 200 || upstream.statusCode >= 300) {
+        return {
+            ok: false,
+            message: `Instagram 主页 HTTP ${upstream.statusCode}`,
+            candidates: []
+        };
+    }
+
+    return {
+        ok: true,
+        message: 'ok',
+        candidates: extractInstagramCandidatesFromHtml(upstream.body)
+    };
+}
+
+function getInstagramHeaders(type) {
+    return {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept': type === 'json' ? 'application/json,text/plain,*/*' : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'X-IG-App-ID': '936619743392459',
+        'Referer': 'https://www.instagram.com/'
+    };
+}
+
+function itemHasVideo(item) {
+    if (!item || typeof item !== 'object') return false;
+    if (Number(item.media_type) === 2 || Array.isArray(item.video_versions)) return true;
+    if (Array.isArray(item.carousel_media)) return item.carousel_media.some(itemHasVideo);
+    return false;
+}
+
+function itemToInstagramCandidate(item) {
+    const shortcode = item && (item.code || item.shortcode);
+    if (!shortcode) return null;
+
+    const type = item.product_type === 'clips' ? 'reel' : 'p';
+    return {
+        url: `https://www.instagram.com/${type}/${shortcode}/`,
+        shortcode,
+        type,
+        caption: item.caption && item.caption.text ? String(item.caption.text).slice(0, 120) : ''
+    };
+}
+
+function extractInstagramCandidatesFromHtml(html) {
+    const text = String(html || '')
+        .replace(/\\u002F/g, '/')
+        .replace(/\\\//g, '/')
+        .replace(/&amp;/g, '&');
+    const seen = new Set();
+    const candidates = [];
+    const re = /\/(reel|p|tv)\/([A-Za-z0-9_-]{5,})/g;
+    let match;
+
+    while ((match = re.exec(text))) {
+        const type = match[1] === 'tv' ? 'p' : match[1];
+        const shortcode = match[2];
+        if (seen.has(shortcode)) continue;
+        seen.add(shortcode);
+
+        const context = text.slice(Math.max(0, match.index - 1500), match.index + 1500);
+        const looksVideo = type === 'reel' ||
+            /"is_video"\s*:\s*true/.test(context) ||
+            /"media_type"\s*:\s*2/.test(context) ||
+            /video_versions|video_url|clips_metadata|GraphVideo/.test(context);
+
+        if (!looksVideo) continue;
+
+        candidates.push({
+            url: `https://www.instagram.com/${type}/${shortcode}/`,
+            shortcode,
+            type,
+            caption: ''
+        });
+    }
+
+    return candidates;
+}
+
 const server = http.createServer(async (req, res) => {
     try {
         if (req.method === 'OPTIONS') {
@@ -169,6 +367,42 @@ const server = http.createServer(async (req, res) => {
                 code: 0,
                 message: 'ok',
                 data: lastResult || null
+            }));
+            return;
+        }
+
+        if (url.pathname === '/api/instagram/latest') {
+            const input = JSON.parse(body || '{}');
+            const username = normalizeInstagramUsername(input.profile || input.profileUrl || input.username || input.url || '');
+
+            if (!username) {
+                send(res, 400, JSON.stringify({ code: 1, message: '请输入正确的INS主页链接或账号名' }));
+                return;
+            }
+
+            const result = await fetchInstagramLatestVideo(username);
+            if (result.ok) {
+                send(res, 200, JSON.stringify({
+                    code: 0,
+                    message: result.message || '已提取最新INS视频链接',
+                    data: {
+                        username,
+                        url: result.url,
+                        shortcode: result.shortcode,
+                        source: result.source,
+                        candidates: result.candidates || []
+                    }
+                }));
+                return;
+            }
+
+            send(res, 502, JSON.stringify({
+                code: 1,
+                message: result.message || '没有提取到最新视频链接',
+                data: {
+                    username,
+                    candidates: result.candidates || []
+                }
             }));
             return;
         }

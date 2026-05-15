@@ -2,7 +2,7 @@
 
 本工具包含一个静态页面、一个本机转发服务，以及一个 Cloudflare Worker 转发服务：
 
-- `index.html`：录入 INS/TK 链接，选择 INS 播放或点赞项目，批量提交购买。
+- `index.html`：录入 INS/TK 链接，选择 INS 播放或点赞项目，也可以输入 INS 主页自动提取最新视频链接后批量提交购买。
 - `fensi_proxy_server.js`：只在本机运行，用来登录 fensi.icu 并转发购买接口。
 - `cloudflare-worker.js`：部署到 Cloudflare Workers 后，手机也可以通过公开页面下单。
 
@@ -30,6 +30,12 @@ wrangler deploy
    - 转发服务地址：`https://ins-tk-proxy.nicsnake-vip.workers.dev`
    - 转发访问密码：部署 Worker 时设置的 `PROXY_PASSWORD`
 4. 在页面里登录网站，再添加链接并批量购买。
+
+## INS主页自动提取
+
+页面里的“ins主页/账号，提取最新视频”会通过转发服务请求 Instagram 公开主页，优先读取最新视频或 Reel 链接，再加入 INS 待购买列表。
+
+Instagram 公开接口可能临时要求登录或限流；遇到提示时，先手动复制视频链接到 INS 输入框即可。
 
 ## 注意
 
