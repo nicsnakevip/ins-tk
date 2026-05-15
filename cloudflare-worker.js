@@ -320,11 +320,20 @@ function normalizeTikTokUsername(raw) {
 }
 
 async function fetchTikTokLatestVideo(username, env) {
+  const apiResult = await fetchTikTokLatestVideoWithTikfly(username, env);
+  if (apiResult.ok) return apiResult;
+
   const browserResult = await fetchTikTokLatestVideoWithBrowser(username, env);
   if (browserResult.ok) return browserResult;
 
   const staticResult = await fetchTikTokLatestVideoFromProfile(username);
   if (staticResult.ok) return staticResult;
+
+  if (apiResult.tried) {
+    return Object.assign({}, staticResult, {
+      message: apiResult.message || browserResult.message || staticResult.message
+    });
+  }
 
   if (browserResult.tried) {
     return Object.assign({}, staticResult, {
@@ -333,6 +342,87 @@ async function fetchTikTokLatestVideo(username, env) {
   }
 
   return staticResult;
+}
+
+async function fetchTikTokLatestVideoWithTikfly(username, env) {
+  const apiKey = String((env && env.TIKFLY_RAPIDAPI_KEY) || '').trim();
+  if (!apiKey) {
+    return {
+      ok: false,
+      tried: false,
+      message: 'Tikfly API Key 未配置',
+      candidates: []
+    };
+  }
+
+  const cached = await readTikTokApiCache(username);
+  if (cached) return cached;
+
+  try {
+    const host = String((env && env.TIKFLY_RAPIDAPI_HOST) || 'tiktok-api23.p.rapidapi.com').trim();
+    const headers = {
+      'Accept': 'application/json',
+      'x-rapidapi-key': apiKey,
+      'x-rapidapi-host': host
+    };
+
+    const infoUrl = new URL(`https://${host}/api/user/info`);
+    infoUrl.searchParams.set('uniqueId', username);
+    const info = await fetchJson(infoUrl.toString(), { headers });
+
+    const secUid = info && info.userInfo && info.userInfo.user && info.userInfo.user.secUid;
+    if (!secUid) {
+      return {
+        ok: false,
+        tried: true,
+        message: 'Tikfly 没有返回账号 secUid，请确认TK账号公开且存在',
+        candidates: []
+      };
+    }
+
+    const postsUrl = new URL(`https://${host}/api/user/posts`);
+    postsUrl.searchParams.set('secUid', secUid);
+    postsUrl.searchParams.set('count', '1');
+    postsUrl.searchParams.set('cursor', '0');
+    const posts = await fetchJson(postsUrl.toString(), { headers });
+    const items = (posts && posts.data && Array.isArray(posts.data.itemList)) ? posts.data.itemList : [];
+    const item = items[0];
+
+    if (!item || !item.id) {
+      return {
+        ok: false,
+        tried: true,
+        message: 'Tikfly 没有返回最新作品，请确认账号有公开视频',
+        candidates: []
+      };
+    }
+
+    const author = (item.author && item.author.uniqueId) || username;
+    const candidate = {
+      url: `https://www.tiktok.com/@${author}/video/${item.id}`,
+      coverUrl: pickTikflyCoverUrl(item),
+      videoId: String(item.id),
+      type: 'video'
+    };
+    const result = {
+      ok: true,
+      tried: true,
+      message: '已通过云端API提取最新TK视频链接',
+      source: 'tikfly',
+      candidates: [candidate],
+      ...candidate
+    };
+
+    await writeTikTokApiCache(username, result);
+    return result;
+  } catch (e) {
+    return {
+      ok: false,
+      tried: true,
+      message: `Tikfly 云端API失败：${cleanErrorMessage(e)}`,
+      candidates: []
+    };
+  }
 }
 
 async function fetchTikTokLatestVideoWithBrowser(username, env) {
@@ -414,6 +504,64 @@ async function fetchTikTokLatestVideoWithBrowser(username, env) {
       await browser.close().catch(() => {});
     }
   }
+}
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  const data = safeJsonParse(text);
+  if (!response.ok) {
+    const message = data.message || data.msg || data.error || text.slice(0, 120) || `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+function pickTikflyCoverUrl(item) {
+  const video = (item && item.video) || {};
+  const zoom = video.zoomCover || {};
+  return cleanMediaUrl(
+    video.cover ||
+    video.dynamicCover ||
+    video.originCover ||
+    zoom['240'] ||
+    zoom['480'] ||
+    zoom['720'] ||
+    ''
+  );
+}
+
+async function readTikTokApiCache(username) {
+  if (typeof caches === 'undefined' || !caches.default) return null;
+
+  try {
+    const response = await caches.default.match(getTikTokApiCacheRequest(username));
+    if (!response) return null;
+    const data = safeJsonParse(await response.text());
+    return data && data.ok ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function writeTikTokApiCache(username, data) {
+  if (typeof caches === 'undefined' || !caches.default || !data || !data.ok) return;
+
+  try {
+    await caches.default.put(
+      getTikTokApiCacheRequest(username),
+      new Response(JSON.stringify(data), {
+        headers: {
+          'Content-Type': 'application/json;charset=utf-8',
+          'Cache-Control': 'max-age=1800'
+        }
+      })
+    );
+  } catch (e) {}
+}
+
+function getTikTokApiCacheRequest(username) {
+  return new Request(`https://fensi-cache.local/tiktok/latest/${encodeURIComponent(String(username || '').toLowerCase())}`);
 }
 
 async function fetchTikTokLatestVideoFromProfile(username) {

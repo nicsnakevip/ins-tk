@@ -11,3 +11,5 @@ binding = "MYBROWSER"
 [vars]
 # Set the real value with:
 # wrangler secret put PROXY_PASSWORD
+# Optional cloud TikTok extractor:
+# wrangler secret put TIKFLY_RAPIDAPI_KEY
