@@ -383,6 +383,25 @@
             margin-bottom: 20px;
         }
 
+        .batch-limit-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .batch-limit-box select,
+        .batch-limit-box input {
+            width: 100%;
+            height: 44px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 0 10px;
+            font-size: 15px;
+            background: #fff;
+            outline: none;
+        }
+
         .project-select {
             width: 110px;
             height: 48px;
@@ -734,6 +753,17 @@
         <button class="clear-all-btn" onclick="clearAllRecord()">全部清除</button>
     </div>
 
+    <div class="batch-limit-box">
+        <select id="batchLimitMode" onchange="handleBatchLimitChange()">
+            <option value="all">全部未提交</option>
+            <option value="1">单条</option>
+            <option value="3">前3条</option>
+            <option value="5">前5条</option>
+            <option value="custom">自定义</option>
+        </select>
+        <input type="number" id="batchLimitCustom" min="1" step="1" placeholder="自定义条数" onchange="saveBatchLimitConfig()" oninput="saveBatchLimitConfig()" style="display:none;">
+    </div>
+
     <div class="batch-buy-box">
         <button class="buy-ins-btn" onclick="submitBatchByType('ins')">批量购买INS</button>
         <button class="buy-tk-btn" onclick="submitBatchByType('tk')">批量购买TK</button>
@@ -780,6 +810,8 @@
         selectedProject: 'ins',
         selectedInsProject: 'ins',
         selectedTkProject: 'tk',
+        batchLimitMode: 'all',
+        batchLimitCustom: '',
         goodsId: '3633',
         insTid: '3633',
         insGoodsId: '3633',
@@ -880,6 +912,8 @@
         syncUnifiedProjectTemplate(false);
         clearOverdueRecord();
         renderSavedAccounts();
+        fillLastSavedAccounts();
+        handleBatchLimitChange(false);
         renderAll();
         checkFensiLogin(false);
     };
@@ -1883,11 +1917,30 @@
         });
     }
 
+    function getLastSavedAccount(platform) {
+        const data = getSavedAccounts();
+        return ((data[platform] || [])[0] || '').trim();
+    }
+
+    function fillLastSavedAccounts() {
+        ['ins', 'tk'].forEach(platform => {
+            const input = document.getElementById(platform === 'tk' ? 'tkProfileVal' : 'insProfileVal');
+            if (!input || input.value.trim()) return;
+            const last = getLastSavedAccount(platform);
+            if (last) input.value = last;
+        });
+    }
+
     async function fetchLatestVideo(platform) {
         const isTk = platform === 'tk';
         const input = document.getElementById(isTk ? 'tkProfileVal' : 'insProfileVal');
-        const raw = input ? input.value.trim() : '';
+        let raw = input ? input.value.trim() : '';
         const label = isTk ? 'TK' : 'INS';
+
+        if (!raw) {
+            raw = getLastSavedAccount(isTk ? 'tk' : 'ins');
+            if (input && raw) input.value = raw;
+        }
 
         if (!raw) {
             showToast(`请输入${label}主页或账号`);
@@ -1918,7 +1971,7 @@
                     sourceUsername: info.username || ''
                 });
                 saveAccountFromInput(isTk ? 'tk' : 'ins');
-                if (input) input.value = '';
+                if (input) input.value = raw;
                 setActionStatus(`${msg}：${link}`, 'ok');
                 return;
             }
@@ -2054,6 +2107,68 @@
         const first = range.minMultiple * range.base;
         const last = range.maxMultiple * range.base;
         return first === last ? `${first}（基数${range.base}）` : `${first}-${last}，基数${range.base}`;
+    }
+
+    function handleBatchLimitChange(shouldSave = true) {
+        const modeEl = document.getElementById('batchLimitMode');
+        const customEl = document.getElementById('batchLimitCustom');
+        const isCustom = modeEl && modeEl.value === 'custom';
+
+        if (customEl) {
+            customEl.style.display = isCustom ? 'block' : 'none';
+        }
+        if (shouldSave) saveBatchLimitConfig();
+    }
+
+    function saveBatchLimitConfig() {
+        const cfg = getApiConfig();
+        const modeEl = document.getElementById('batchLimitMode');
+        const customEl = document.getElementById('batchLimitCustom');
+
+        if (modeEl) cfg.batchLimitMode = modeEl.value || 'all';
+        if (customEl) cfg.batchLimitCustom = customEl.value.trim();
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+    }
+
+    function getBatchLimitChoice() {
+        const modeEl = document.getElementById('batchLimitMode');
+        const customEl = document.getElementById('batchLimitCustom');
+        const mode = modeEl ? modeEl.value : 'all';
+
+        if (mode === 'all') {
+            return { ok: true, mode, limit: 0, label: '全部未提交', shortLabel: '全部' };
+        }
+
+        if (mode === 'custom') {
+            const raw = customEl ? customEl.value.trim() : '';
+            const limit = Number.parseInt(raw, 10);
+            if (!raw || !/^\d+$/.test(raw) || limit <= 0) {
+                return { ok: false, msg: '请输入正确的自定义购买条数' };
+            }
+            return { ok: true, mode, limit, label: `前${limit}条`, shortLabel: `前${limit}条` };
+        }
+
+        const limit = Number.parseInt(mode, 10);
+        if (!Number.isFinite(limit) || limit <= 0) {
+            return { ok: true, mode: 'all', limit: 0, label: '全部未提交', shortLabel: '全部' };
+        }
+
+        return {
+            ok: true,
+            mode,
+            limit,
+            label: limit === 1 ? '单条' : `前${limit}条`,
+            shortLabel: limit === 1 ? '单条' : `前${limit}条`
+        };
+    }
+
+    function applyBatchLimitToRows(rows) {
+        const choice = getBatchLimitChoice();
+        if (!choice.ok) return Object.assign({ rows: [] }, choice);
+
+        const allRows = Array.isArray(rows) ? rows : [];
+        const limitedRows = choice.limit > 0 ? allRows.slice(0, choice.limit) : allRows;
+        return Object.assign({}, choice, { rows: limitedRows });
     }
 
     function getFensiEndpointUrl(cfg, isBatch) {
@@ -2246,10 +2361,18 @@
                 if (!row.item || !row.item.content) return false;
                 return type === 'ins' ? isInsRecordType(row.item.type) : isTkRecordType(row.item.type);
             });
-        let targets = allRows.filter(row => getPurchaseInfo(row.item, purchaseType).apiStatus !== 'success');
+        const pendingRows = allRows.filter(row => getPurchaseInfo(row.item, purchaseType).apiStatus !== 'success');
+        let limitInfo = applyBatchLimitToRows(pendingRows);
+        if (!limitInfo.ok) {
+            showToast(limitInfo.msg);
+            setActionStatus(limitInfo.msg, 'fail');
+            return;
+        }
+
+        let targets = limitInfo.rows;
         let isResubmit = false;
 
-        if (!targets.length) {
+        if (!pendingRows.length) {
             if (!allRows.length) {
                 const msg = `暂无${inputLabel}链接：先在${inputLabel}输入框添加链接并点确认`;
                 showToast(msg);
@@ -2257,19 +2380,26 @@
                 return;
             }
 
-            const resubmitMsg = `当前${typeLabel}记录都已提交。是否重新购买这 ${allRows.length} 条？会产生新订单。`;
+            limitInfo = applyBatchLimitToRows(allRows);
+            if (!limitInfo.ok) {
+                showToast(limitInfo.msg);
+                setActionStatus(limitInfo.msg, 'fail');
+                return;
+            }
+            targets = limitInfo.rows;
+
+            const resubmitMsg = `当前${typeLabel}记录都已提交。是否重新购买${limitInfo.shortLabel}（${targets.length} 条）？会产生新订单。`;
             setActionStatus(resubmitMsg, 'warn');
             if (!confirm(resubmitMsg)) {
                 setActionStatus('已取消重新购买', 'warn');
                 return;
             }
-            targets = allRows;
             isResubmit = true;
         }
 
         const unitPrice = await ensureProjectUnitPrice(purchaseType, effectiveCfg);
         const confirmCost = getEstimatedCostLabel(purchaseType, getApiConfig(), targets);
-        const confirmMsg = `确定按随机数量 ${getBuyNumberLabel(effectiveCfg)} 批量购买 ${targets.length} 条${typeLabel}链接？预计费用：${confirmCost}`;
+        const confirmMsg = `确定按随机数量 ${getBuyNumberLabel(effectiveCfg)} 批量购买 ${targets.length} 条${typeLabel}链接（${limitInfo.label}）？预计费用：${confirmCost}`;
         if (!isResubmit) {
             setActionStatus(confirmMsg, 'warn');
             if (!confirm(confirmMsg)) {
