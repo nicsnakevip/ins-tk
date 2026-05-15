@@ -48,6 +48,48 @@
             font-weight: 400;
         }
 
+        .account-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .summary-pill {
+            background: #f7f9fc;
+            border: 1px solid #edf0f5;
+            border-radius: 10px;
+            padding: 10px;
+            min-width: 0;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 4px;
+        }
+
+        .summary-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: #222;
+            word-break: break-all;
+        }
+
+        .config-details {
+            margin-top: 6px;
+            padding-top: 2px;
+        }
+
+        .config-details > summary {
+            height: 34px;
+            display: flex;
+            align-items: center;
+            color: #1677ff;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
         .api-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -403,11 +445,25 @@
 <div class="wrap">
     <div class="api-card">
         <div class="api-title">
-            <span>API配置</span>
+            <span>账户状态</span>
             <a href="https://fensi.icu/user/interface" target="_blank">打开接口文档</a>
         </div>
 
-        <div class="api-grid">
+        <div class="account-summary">
+            <div class="summary-pill">
+                <div class="summary-label">账户余额</div>
+                <div class="summary-value" id="accountBalanceText">--</div>
+            </div>
+            <div class="summary-pill">
+                <div class="summary-label">预计费用</div>
+                <div class="summary-value" id="orderCostText">--</div>
+            </div>
+        </div>
+
+        <details class="config-details" id="apiConfigDetails" open>
+            <summary>登录和API配置</summary>
+
+            <div class="api-grid">
             <div class="full">
                 <div class="field-label">接口地址</div>
                 <input type="text" id="apiUrl" placeholder="例如：http://127.0.0.1:8787/api/customer/Home/BuyIn">
@@ -576,6 +632,7 @@
         <div class="api-help">
             fensi模式需要先登录网站。手机使用时填 Cloudflare Worker 转发地址和访问密码；登录状态只保存在当前浏览器本地。
         </div>
+        </details>
     </div>
 
     <div class="input-row">
@@ -725,6 +782,7 @@
 
     window.onload = function () {
         loadApiConfigToPage();
+        setConfigDetailsOpen(!getApiConfig().fensiAuthToken);
         currentInsProjectType = getSelectedInsProjectType();
         syncInsProjectTemplate(false);
         clearOverdueRecord();
@@ -895,6 +953,178 @@
         return { text, data };
     }
 
+    function setConfigDetailsOpen(open) {
+        const el = document.getElementById('apiConfigDetails');
+        if (el) el.open = Boolean(open);
+    }
+
+    function formatMoney(value, digits) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '--';
+        return '￥' + num.toLocaleString(undefined, {
+            minimumFractionDigits: digits == null ? 2 : digits,
+            maximumFractionDigits: digits == null ? 4 : digits
+        });
+    }
+
+    function parsePositiveNumber(value) {
+        if (value === null || value === undefined || value === '') return null;
+        const num = Number(String(value).replace(/[^\d.-]/g, ''));
+        return Number.isFinite(num) && num >= 0 ? num : null;
+    }
+
+    function findNumberByKeys(obj, keys) {
+        const keySet = new Set(keys.map(key => key.toLowerCase()));
+        const seen = new Set();
+
+        function walk(value) {
+            if (!value || typeof value !== 'object' || seen.has(value)) return null;
+            seen.add(value);
+
+            for (const key of Object.keys(value)) {
+                if (keySet.has(key.toLowerCase())) {
+                    const num = parsePositiveNumber(value[key]);
+                    if (num !== null) return num;
+                }
+            }
+
+            for (const key of Object.keys(value)) {
+                const found = walk(value[key]);
+                if (found !== null) return found;
+            }
+
+            return null;
+        }
+
+        return walk(obj);
+    }
+
+    function extractBalance(data) {
+        return findNumberByKeys(data, ['balance', 'wallet_balance', 'money', 'user_money', 'account_balance']);
+    }
+
+    function extractUnitPrice(data) {
+        return findNumberByKeys(data, ['price', 'goods_price', 'unit_price', 'user_price', 'sale_price']);
+    }
+
+    function extractOrderAmount(data) {
+        return findNumberByKeys(data, ['amount', 'pay_amount', 'total_amount', 'total_price', 'money', 'cost']);
+    }
+
+    function saveAccountBalance(balance) {
+        const cfg = getApiConfig();
+        cfg.accountBalance = balance === null || balance === undefined ? '' : String(balance);
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        updateAccountSummary();
+    }
+
+    function clearAccountBalance() {
+        const cfg = getApiConfig();
+        cfg.accountBalance = '';
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        updateAccountSummary();
+    }
+
+    function getUnitPriceKey(type) {
+        if (type === 'insLike') return 'insLikeUnitPrice';
+        if (type === 'tk') return 'tkUnitPrice';
+        return 'insUnitPrice';
+    }
+
+    function getProjectUnitPrice(type, cfg) {
+        const key = getUnitPriceKey(type);
+        return parsePositiveNumber((cfg || getApiConfig())[key]);
+    }
+
+    function saveProjectUnitPrice(type, price) {
+        const num = parsePositiveNumber(price);
+        if (num === null) return;
+        const cfg = getApiConfig();
+        cfg[getUnitPriceKey(type)] = String(num);
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        updateAccountSummary();
+    }
+
+    async function refreshGoodsPriceForType(type, showResult) {
+        const cfg = getApiConfig();
+        if (!isFensiBuyMode(cfg) || !cfg.fensiAuthToken) return null;
+
+        const effectiveCfg = getEffectiveConfig(cfg, type);
+        if (!effectiveCfg.goodsId) return null;
+
+        try {
+            const res = await fetch(buildProxyUrl(cfg, '/api/customer/Home/GetGoods'), {
+                method: 'POST',
+                headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
+                body: JSON.stringify({ id: normalizeMaybeNumber(effectiveCfg.goodsId) })
+            });
+            const result = await readJsonResponse(res);
+            const price = extractUnitPrice(result.data);
+
+            if (res.ok && price !== null) {
+                saveProjectUnitPrice(type, price);
+                if (showResult) setActionStatus(`${getTypeLabel(type)}单价已更新：${formatMoney(price, 4)}`, 'ok');
+                return price;
+            }
+
+            if (showResult) setActionStatus('没有读取到商品单价，提交后会按接口返回为准。', 'warn');
+        } catch (e) {
+            if (showResult) setActionStatus('读取商品单价失败，提交后会按接口返回为准。', 'warn');
+        }
+
+        updateAccountSummary();
+        return null;
+    }
+
+    async function ensureProjectUnitPrice(type, cfg) {
+        const saved = getProjectUnitPrice(type, cfg);
+        if (saved !== null) return saved;
+        return await refreshGoodsPriceForType(type, false);
+    }
+
+    function getPendingRowsForType(type) {
+        const list = getList();
+        const recordType = type === 'tk' ? 'tk' : 'ins';
+        return list
+            .map((item, idx) => ({ item, idx }))
+            .filter(row => {
+                if (!row.item || !row.item.content) return false;
+                return recordType === 'ins' ? isInsRecordType(row.item.type) : row.item.type === recordType;
+            })
+            .filter(row => getPurchaseInfo(row.item, type).apiStatus !== 'success');
+    }
+
+    function getEstimatedCostLabel(type, cfg, rows) {
+        const effectiveCfg = getEffectiveConfig(cfg, type);
+        const range = getBuyNumberRange(effectiveCfg);
+        const unitPrice = getProjectUnitPrice(type, cfg);
+        const count = rows ? rows.length : getPendingRowsForType(type).length;
+
+        if (!count) return '--';
+        if (!range.ok) return '数量设置有误';
+        if (unitPrice === null) return `${count}条，单价待读取`;
+
+        const first = range.minMultiple * range.base;
+        const last = range.maxMultiple * range.base;
+        const minCost = first * count * unitPrice;
+        const maxCost = last * count * unitPrice;
+        const costText = minCost === maxCost
+            ? formatMoney(minCost, 4)
+            : `${formatMoney(minCost, 4)}-${formatMoney(maxCost, 4)}`;
+        return `${costText}（${count}条）`;
+    }
+
+    function updateAccountSummary() {
+        const cfg = getApiConfig();
+        const balanceEl = document.getElementById('accountBalanceText');
+        const costEl = document.getElementById('orderCostText');
+        const balance = parsePositiveNumber(cfg.accountBalance);
+        const type = resolveBatchType('ins');
+
+        if (balanceEl) balanceEl.innerText = balance === null ? '--' : formatMoney(balance, 2);
+        if (costEl) costEl.innerText = getEstimatedCostLabel(type, cfg);
+    }
+
     async function loginFensi() {
         const cfg = saveApiConfigFromPage(false);
         const accountEl = document.getElementById('loginAccount');
@@ -923,8 +1153,11 @@
             if (res.ok && data && Number(data.code) === 0) {
                 saveFensiAuthToken(getFensiAuthTokenFromResponse(data));
                 if (passwordEl) passwordEl.value = '';
+                const loginInfo = await checkFensiLogin(false);
                 showToast('网站登录成功');
-                setActionStatus('网站登录成功，可以提交购买。', 'ok');
+                setConfigDetailsOpen(false);
+                const balanceText = loginInfo.balance !== null && loginInfo.balance !== undefined ? `余额：${formatMoney(loginInfo.balance, 2)}。` : '';
+                setActionStatus(`网站登录成功，${balanceText}可以提交购买。`, 'ok');
                 return true;
             }
 
@@ -951,20 +1184,32 @@
             const data = result.data;
             const msg = (data && (data.message || data.msg)) || result.text || '登录检测已返回';
             const ok = res.ok && data && Number(data.code) === 0;
+            const balance = ok ? extractBalance(data) : null;
+
+            if (ok) {
+                if (balance !== null) saveAccountBalance(balance);
+                setConfigDetailsOpen(false);
+                refreshGoodsPriceForType(getSelectedInsProjectType(), false);
+            } else if (data && Number(data.code) === 100) {
+                clearFensiAuthToken();
+                clearAccountBalance();
+                setConfigDetailsOpen(true);
+            }
 
             if (showResult || ok) {
                 showToast(ok ? '登录状态正常' : '还没有登录状态');
-                setActionStatus(ok ? '网站登录状态正常，可以提交购买。' : '还没有网站登录状态：' + msg, ok ? 'ok' : 'fail');
+                const balanceText = ok && balance !== null ? `账户余额：${formatMoney(balance, 2)}。` : '';
+                setActionStatus(ok ? `${balanceText}网站登录状态正常，可以提交购买。` : '还没有网站登录状态：' + msg, ok ? 'ok' : 'fail');
             }
 
-            return { ok, msg };
+            return { ok, msg, balance };
         } catch (e) {
             const msg = '无法检测登录：本地转发服务未启动或网络异常';
             if (showResult) {
                 showToast('检测失败');
                 setActionStatus(msg, 'fail');
             }
-            return { ok: false, msg };
+            return { ok: false, msg, balance: null };
         }
     }
 
@@ -979,6 +1224,8 @@
         } catch (e) {}
 
         clearFensiAuthToken();
+        clearAccountBalance();
+        setConfigDetailsOpen(true);
         showToast('已清除登录状态');
         setActionStatus('已清除当前浏览器登录状态。', 'warn');
     }
@@ -1125,6 +1372,7 @@
         saveVisibleInsProjectConfig(cfg, type);
         localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
         renderAll();
+        refreshGoodsPriceForType(type, false);
 
         if (showResult) {
             setActionStatus(`已切换到${project.label}：项目ID ${cfg.goodsId}，数量 ${template.randomMinNum}-${template.randomMaxNum}，基数 ${template.orderBaseNum}`, 'ok');
@@ -1141,6 +1389,8 @@
 
         const goodsId = document.getElementById('goodsId');
         if (goodsId) goodsId.value = cfg.goodsId || '';
+        updateAccountSummary();
+        refreshGoodsPriceForType(type, false);
     }
 
     function getDate() {
@@ -1445,6 +1695,7 @@
                 }
             }
 
+            const unitPrice = isFensiBuyMode(cfg) ? await ensureProjectUnitPrice(submitType, effectiveCfg) : null;
             const method = String(cfg.apiMethod || 'POST').toUpperCase();
             let url = isFensiBuyMode(cfg) ? getFensiEndpointUrl(effectiveCfg, false) : cfg.apiUrl;
             const options = { method };
@@ -1483,17 +1734,20 @@
 
             const parsed = parseApiResult(res.ok, text, data, effectiveCfg);
             const previousInfo = getPurchaseInfo(finalItem, submitType);
+            const estimatedAmount = unitPrice !== null && item.__buyNumber ? Number(item.__buyNumber) * unitPrice : null;
             setPurchaseResult(finalItem, submitType, {
                 apiStatus: parsed.ok ? 'success' : 'fail',
                 apiMsg: parsed.msg,
                 apiResponse: text || parsed.msg,
                 orderId: parsed.orderId || previousInfo.orderId || '',
-                buyNumber: item.__buyNumber || previousInfo.buyNumber || ''
+                buyNumber: item.__buyNumber || previousInfo.buyNumber || '',
+                amount: parsed.amount !== null && parsed.amount !== undefined ? parsed.amount : (estimatedAmount !== null ? estimatedAmount : previousInfo.amount || '')
             });
 
             saveList(finalList);
             renderAll();
             showToast(parsed.msg);
+            if (parsed.ok && isFensiBuyMode(cfg)) checkFensiLogin(false);
         } catch (e) {
             const finalList = getList();
             const finalItem = finalList[idx];
@@ -1556,7 +1810,9 @@
             isResubmit = true;
         }
 
-        const confirmMsg = `确定按随机数量 ${getBuyNumberLabel(effectiveCfg)} 批量购买 ${targets.length} 条${typeLabel}链接？`;
+        const unitPrice = await ensureProjectUnitPrice(purchaseType, effectiveCfg);
+        const confirmCost = getEstimatedCostLabel(purchaseType, getApiConfig(), targets);
+        const confirmMsg = `确定按随机数量 ${getBuyNumberLabel(effectiveCfg)} 批量购买 ${targets.length} 条${typeLabel}链接？预计费用：${confirmCost}`;
         if (!isResubmit) {
             setActionStatus(confirmMsg, 'warn');
             if (!confirm(confirmMsg)) {
@@ -1617,6 +1873,10 @@
 
             const parsed = parseApiResult(res.ok, text, data, effectiveCfg);
             const finalList = getList();
+            const exactEstimatedAmount = unitPrice !== null
+                ? targets.reduce((sum, row) => sum + (Number(row.item.__buyNumber || 0) * unitPrice), 0)
+                : null;
+            const finalAmount = parsed.amount !== null && parsed.amount !== undefined ? parsed.amount : exactEstimatedAmount;
 
             targets.forEach(row => {
                 const item = finalList[row.idx];
@@ -1627,7 +1887,8 @@
                     apiMsg: parsed.msg,
                     apiResponse: text || parsed.msg,
                     orderId: parsed.orderId || previousInfo.orderId || '',
-                    buyNumber: row.item.__buyNumber || previousInfo.buyNumber || ''
+                    buyNumber: row.item.__buyNumber || previousInfo.buyNumber || '',
+                    amount: finalAmount !== null && finalAmount !== undefined ? finalAmount : previousInfo.amount || ''
                 });
                 item.batchCount = targets.length;
             });
@@ -1635,7 +1896,9 @@
             saveList(finalList);
             renderAll();
             showToast(parsed.msg);
-            setActionStatus(parsed.msg + (text ? '\n接口返回：' + text.slice(0, 500) : ''), parsed.ok ? 'ok' : 'fail');
+            const amountText = finalAmount !== null && finalAmount !== undefined ? `\n下单费用：${formatMoney(finalAmount, 4)}` : '';
+            setActionStatus(parsed.msg + amountText + (text ? '\n接口返回：' + text.slice(0, 500) : ''), parsed.ok ? 'ok' : 'fail');
+            if (parsed.ok) checkFensiLogin(false);
         } catch (e) {
             const finalList = getList();
             const errMsg = '批量提交失败：' + (e && e.message ? e.message : '可能是跨域/CORS、接口地址错误、或网络问题');
@@ -1657,11 +1920,11 @@
 
     function parseApiResult(httpOk, text, data, cfg) {
         if (!httpOk) {
-            return { ok: false, msg: '接口请求失败：HTTP状态异常' };
+            return { ok: false, msg: '接口请求失败：HTTP状态异常', amount: null };
         }
 
         if (!data) {
-            return { ok: true, msg: '接口已返回，请点记录查看原始结果' };
+            return { ok: true, msg: '接口已返回，请点记录查看原始结果', amount: null };
         }
 
         const code = data.code !== undefined ? data.code : data.status;
@@ -1677,6 +1940,7 @@
             data.id ||
             (data.data && (data.data.order || data.data.orderid || data.data.order_id || data.data.id)) ||
             '';
+        const amount = extractOrderAmount(data);
         const codeStr = String(code).toLowerCase();
         const msgStr = String(msg);
 
@@ -1684,7 +1948,8 @@
             return {
                 ok: false,
                 msg: '提交失败：网站登录状态无效，请重新点“登录网站”',
-                orderId: ''
+                orderId: '',
+                amount
             };
         }
 
@@ -1702,7 +1967,8 @@
         return {
             ok: looksOkCode && !looksFail,
             msg: (looksOkCode && !looksFail ? '提交成功' : '提交可能失败') + '：' + msg,
-            orderId
+            orderId,
+            amount
         };
     }
 
@@ -1719,6 +1985,9 @@
             const status = getStatusText(info.apiStatus);
             const order = info.orderId ? `<div style="font-size:11px;color:#888;margin-top:3px;">订单：${escapeHtml(info.orderId)}</div>` : '';
             const buyInfo = info.buyNumber ? `<div style="font-size:11px;color:#888;margin-top:3px;">数量：${escapeHtml(info.buyNumber)}</div>` : '';
+            const amountInfo = info.amount !== undefined && info.amount !== null && info.amount !== ''
+                ? `<div style="font-size:11px;color:#888;margin-top:3px;">费用：${escapeHtml(formatMoney(info.amount, 4))}</div>`
+                : '';
             const cover = item.coverUrl
                 ? `<img class="record-thumb" src="${escapeHtml(item.coverUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
                 : '';
@@ -1729,6 +1998,7 @@
                         <div>${safeDate} ${safeType}</div>
                         <span class="status ${status.cls}">${status.text}</span>
                         ${buyInfo}
+                        ${amountInfo}
                         ${order}
                     </div>
                 </div>`;
@@ -1742,6 +2012,7 @@
 
         document.getElementById('insList').innerHTML = insHtml;
         document.getElementById('tkList').innerHTML = tkHtml;
+        updateAccountSummary();
     }
 
     function getStatusText(status) {
@@ -1752,7 +2023,7 @@
     }
 
     function getPurchaseInfo(item, purchaseType) {
-        if (!item) return { apiStatus: 'local', apiMsg: '', apiResponse: '', orderId: '', buyNumber: '' };
+        if (!item) return { apiStatus: 'local', apiMsg: '', apiResponse: '', orderId: '', buyNumber: '', amount: '' };
 
         if (item.apiByProject) {
             if (item.apiByProject[purchaseType]) {
@@ -1761,7 +2032,8 @@
                     apiMsg: '',
                     apiResponse: '',
                     orderId: '',
-                    buyNumber: ''
+                    buyNumber: '',
+                    amount: ''
                 }, item.apiByProject[purchaseType]);
             }
 
@@ -1770,7 +2042,8 @@
                 apiMsg: '已本地保存，尚未提交API',
                 apiResponse: '',
                 orderId: '',
-                buyNumber: ''
+                buyNumber: '',
+                amount: ''
             };
         }
 
@@ -1780,11 +2053,12 @@
                 apiMsg: item.apiMsg || '',
                 apiResponse: item.apiResponse || '',
                 orderId: item.orderId || '',
-                buyNumber: item.buyNumber || ''
+                buyNumber: item.buyNumber || '',
+                amount: item.amount || ''
             };
         }
 
-        return { apiStatus: 'local', apiMsg: '已本地保存，尚未提交API', apiResponse: '', orderId: '', buyNumber: '' };
+        return { apiStatus: 'local', apiMsg: '已本地保存，尚未提交API', apiResponse: '', orderId: '', buyNumber: '', amount: '' };
     }
 
     function setPurchaseResult(item, purchaseType, fields) {
@@ -1799,7 +2073,8 @@
                         apiMsg: item.apiMsg || '',
                         apiResponse: item.apiResponse || '',
                         orderId: item.orderId || '',
-                        buyNumber: item.buyNumber || ''
+                        buyNumber: item.buyNumber || '',
+                        amount: item.amount || ''
                     };
                 }
             }
