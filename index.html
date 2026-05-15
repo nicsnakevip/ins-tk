@@ -74,6 +74,8 @@
             font-weight: 700;
             color: #222;
             word-break: break-all;
+            white-space: pre-line;
+            line-height: 1.35;
         }
 
         .config-details {
@@ -226,6 +228,54 @@
 
         .fetch-row-btn {
             background: #13a86b;
+        }
+
+        .account-input-row .row-btn {
+            width: 64px;
+            font-size: 14px;
+        }
+
+        .save-account-btn {
+            background: #6c757d;
+        }
+
+        .saved-account-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: -4px 0 12px;
+        }
+
+        .account-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 100%;
+            min-height: 30px;
+            border: 1px solid #d7e6ff;
+            border-radius: 999px;
+            background: #f2f7ff;
+            color: #1677ff;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+
+        .account-chip span {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .account-chip button {
+            border: none;
+            background: transparent;
+            color: #777;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1;
+            padding: 0 1px;
         }
 
         .record-container {
@@ -522,77 +572,36 @@
                 <div class="field-label">API密钥 / Token（通用接口）</div>
                 <input type="password" id="apiKey" placeholder="通用接口需要时填写">
             </div>
-
-            <div>
-                <div class="field-label">INS项目</div>
-                <select id="selectedInsProject" onchange="syncInsProjectTemplate(true)">
-                    <option value="ins">播放</option>
-                    <option value="insLike">点赞</option>
-                </select>
-            </div>
-
-            <div>
-                <div class="field-label">INS项目ID / tid</div>
-                <input type="text" id="insTid" placeholder="INS业务ID" onchange="rememberCurrentInsTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">TK项目ID / tid</div>
-                <input type="text" id="tkTid" placeholder="TK业务ID">
-            </div>
-
-            <div>
-                <div class="field-label">随机最小数量</div>
-                <input type="number" id="randomMinNum" min="1" step="1" placeholder="50" onchange="rememberCurrentInsTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">随机最大数量</div>
-                <input type="number" id="randomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">下单基数</div>
-                <input type="number" id="orderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">请求方式</div>
-                <select id="apiMethod">
-                    <option value="POST">POST</option>
-                    <option value="GET">GET</option>
-                </select>
-            </div>
         </div>
 
         <details>
             <summary>高级参数名设置</summary>
             <div class="api-grid" style="margin-top:8px;">
-                <div>
+            <div>
                     <div class="field-label">动作参数名</div>
                     <input type="text" id="fieldAction" placeholder="act">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">下单动作值</div>
                     <input type="text" id="valueAction" placeholder="add">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">密钥参数名</div>
                     <input type="text" id="fieldKey" placeholder="key">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">项目ID参数名</div>
                     <input type="text" id="fieldService" placeholder="tid">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">链接参数名</div>
                     <input type="text" id="fieldLink" placeholder="input">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">数量参数名</div>
                     <input type="text" id="fieldNum" placeholder="num">
-                </div>
-                <div>
+            </div>
+            <div>
                     <div class="field-label">AppID参数名</div>
                     <input type="text" id="fieldAppId" placeholder="app_id">
                 </div>
@@ -635,18 +644,99 @@
         </details>
     </div>
 
-    <div class="input-row">
-        <input type="text" id="insProfileVal" placeholder="ins主页/账号，提取最新视频">
-        <button class="row-btn fetch-row-btn" onclick="fetchLatestInsVideo()">提取</button>
+    <div class="api-card">
+        <div class="api-title">
+            <span>项目设置</span>
+        </div>
+
+        <div class="api-grid">
+            <div>
+                <div class="field-label">INS项目</div>
+                <select id="selectedInsProject" onchange="syncInsProjectTemplate(true)">
+                    <option value="ins">播放</option>
+                    <option value="insLike">点赞</option>
+                </select>
+            </div>
+
+            <div>
+                <div class="field-label">INS项目ID / tid</div>
+                <input type="text" id="insTid" placeholder="INS业务ID" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">INS随机最小数量</div>
+                <input type="number" id="randomMinNum" min="1" step="1" placeholder="50" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">INS随机最大数量</div>
+                <input type="number" id="randomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">INS下单基数</div>
+                <input type="number" id="orderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">TK项目</div>
+                <select id="selectedTkProject" onchange="syncTkProjectTemplate(true)">
+                    <option value="tk">播放</option>
+                    <option value="tkLike">点赞</option>
+                </select>
+            </div>
+
+            <div>
+                <div class="field-label">TK项目ID / tid</div>
+                <input type="text" id="tkTid" placeholder="TK业务ID" onchange="rememberCurrentTkTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">TK随机最小数量</div>
+                <input type="number" id="tkRandomMinNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">TK随机最大数量</div>
+                <input type="number" id="tkRandomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">TK下单基数</div>
+                <input type="number" id="tkOrderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
+            </div>
+
+            <div>
+                <div class="field-label">请求方式</div>
+                <select id="apiMethod">
+                    <option value="POST">POST</option>
+                    <option value="GET">GET</option>
+                </select>
+            </div>
+        </div>
     </div>
+
+    <div class="input-row account-input-row">
+        <input type="text" id="insProfileVal" placeholder="ins主页/账号，提取最新视频">
+        <button class="row-btn save-account-btn" onclick="saveAccountFromInput('ins')">保存</button>
+        <button class="row-btn fetch-row-btn" onclick="fetchLatestVideo('ins')">提取</button>
+    </div>
+    <div class="saved-account-row" id="insAccountList"></div>
 
     <div class="input-row">
         <input type="text" id="insVal" placeholder="ins输入链接（播放/点赞通用）">
         <button class="row-btn" onclick="saveAndSubmit('ins')">确认</button>
     </div>
 
+    <div class="input-row account-input-row">
+        <input type="text" id="tkProfileVal" placeholder="tk主页/账号，提取最新视频">
+        <button class="row-btn save-account-btn" onclick="saveAccountFromInput('tk')">保存</button>
+        <button class="row-btn fetch-row-btn" onclick="fetchLatestVideo('tk')">提取</button>
+    </div>
+    <div class="saved-account-row" id="tkAccountList"></div>
+
     <div class="input-row">
-        <input type="text" id="tkVal" placeholder="tk输入链接/账号">
+        <input type="text" id="tkVal" placeholder="tk输入链接">
         <button class="row-btn" onclick="saveAndSubmit('tk')">确认</button>
     </div>
 
@@ -699,6 +789,7 @@
     const SEVEN_DAY = 7 * 24 * 60 * 60 * 1000;
     const STORAGE_KEY = 'linkRecord';
     const API_CONFIG_KEY = 'fensiApiConfig';
+    const ACCOUNT_STORAGE_KEY = 'sourceAccountRecord';
 
     const DEFAULT_API_CONFIG = {
         apiUrl: 'https://ins-tk-proxy.nicsnake-vip.workers.dev/api/customer/Home/BuyIn',
@@ -710,6 +801,7 @@
         appSecret: '',
         apiKey: '',
         selectedInsProject: 'ins',
+        selectedTkProject: 'tk',
         goodsId: '3633',
         insTid: '3633',
         insGoodsId: '3633',
@@ -720,7 +812,15 @@
         insLikeRandomMinNum: '10',
         insLikeRandomMaxNum: '100',
         insLikeOrderBaseNum: '1',
-        tkTid: '',
+        tkTid: '3520',
+        tkGoodsId: '3520',
+        tkLikeGoodsId: '3399',
+        tkRandomMinNum: '100',
+        tkRandomMaxNum: '100',
+        tkOrderBaseNum: '100',
+        tkLikeRandomMinNum: '10',
+        tkLikeRandomMaxNum: '100',
+        tkLikeOrderBaseNum: '1',
         defaultNum: '50',
         randomMinNum: '50',
         randomMaxNum: '100',
@@ -765,13 +865,24 @@
             tidKey: ''
         },
         tk: {
-            label: 'TK',
+            label: 'TK播放',
             inputId: 'tkVal',
             listId: 'tkList',
-            goodsId: '',
-            randomMinNum: '50',
-            randomMaxNum: '100',
+            goodsId: '3520',
+            randomMinNum: '100',
             orderBaseNum: '100',
+            randomMaxNum: '100',
+            buyParamKey: '作品链接',
+            tidKey: 'tkTid'
+        },
+        tkLike: {
+            label: 'TK点赞',
+            inputId: 'tkVal',
+            listId: 'tkList',
+            goodsId: '3399',
+            randomMinNum: '10',
+            randomMaxNum: '100',
+            orderBaseNum: '1',
             buyParamKey: '作品链接',
             tidKey: 'tkTid'
         }
@@ -779,13 +890,17 @@
 
     let currentEditIndex = -1;
     let currentInsProjectType = 'ins';
+    let currentTkProjectType = 'tk';
 
     window.onload = function () {
         loadApiConfigToPage();
-        setConfigDetailsOpen(!getApiConfig().fensiAuthToken);
+        setConfigDetailsOpen(false);
         currentInsProjectType = getSelectedInsProjectType();
+        currentTkProjectType = getSelectedTkProjectType();
         syncInsProjectTemplate(false);
+        syncTkProjectTemplate(false);
         clearOverdueRecord();
+        renderSavedAccounts();
         renderAll();
         checkFensiLogin(false);
     };
@@ -825,6 +940,8 @@
                 cfg.apiUrl = buildProxyUrl(cfg, '/api/customer/Home/BuyIn');
                 if (!cfg.insGoodsId) cfg.insGoodsId = DEFAULT_API_CONFIG.insGoodsId;
                 if (!cfg.insLikeGoodsId) cfg.insLikeGoodsId = DEFAULT_API_CONFIG.insLikeGoodsId;
+                if (!cfg.tkGoodsId) cfg.tkGoodsId = DEFAULT_API_CONFIG.tkGoodsId;
+                if (!cfg.tkLikeGoodsId) cfg.tkLikeGoodsId = DEFAULT_API_CONFIG.tkLikeGoodsId;
                 if (!cfg.buyParamKey || cfg.buyParamKey === 'input') {
                     cfg.buyParamKey = DEFAULT_API_CONFIG.buyParamKey;
                 }
@@ -853,6 +970,9 @@
         const selectedType = getSelectedInsProjectType();
         c.selectedInsProject = selectedType;
         saveVisibleInsProjectConfig(c, selectedType);
+        const selectedTkType = getSelectedTkProjectType();
+        c.selectedTkProject = selectedTkType;
+        saveVisibleProjectConfig(c, selectedTkType);
         c.goodsId = getProjectGoodsId(selectedType, c) || c.goodsId;
         return c;
     }
@@ -861,6 +981,7 @@
         saveApiConfigFromPage(false);
         loadApiConfigToPage();
         syncInsProjectTemplate(false);
+        syncTkProjectTemplate(false);
         showToast('API配置已保存');
         setActionStatus('API配置已保存', 'ok');
     }
@@ -881,7 +1002,9 @@
         localStorage.removeItem(API_CONFIG_KEY);
         loadApiConfigToPage();
         currentInsProjectType = getSelectedInsProjectType();
+        currentTkProjectType = getSelectedTkProjectType();
         syncInsProjectTemplate(false);
+        syncTkProjectTemplate(false);
         showToast('已重置');
     }
 
@@ -1027,6 +1150,7 @@
 
     function getUnitPriceKey(type) {
         if (type === 'insLike') return 'insLikeUnitPrice';
+        if (type === 'tkLike') return 'tkLikeUnitPrice';
         if (type === 'tk') return 'tkUnitPrice';
         return 'insUnitPrice';
     }
@@ -1084,12 +1208,12 @@
 
     function getPendingRowsForType(type) {
         const list = getList();
-        const recordType = type === 'tk' ? 'tk' : 'ins';
+        const isTk = isTkRecordType(type);
         return list
             .map((item, idx) => ({ item, idx }))
             .filter(row => {
                 if (!row.item || !row.item.content) return false;
-                return recordType === 'ins' ? isInsRecordType(row.item.type) : row.item.type === recordType;
+                return isTk ? isTkRecordType(row.item.type) : isInsRecordType(row.item.type);
             })
             .filter(row => getPurchaseInfo(row.item, type).apiStatus !== 'success');
     }
@@ -1119,10 +1243,13 @@
         const balanceEl = document.getElementById('accountBalanceText');
         const costEl = document.getElementById('orderCostText');
         const balance = parsePositiveNumber(cfg.accountBalance);
-        const type = resolveBatchType('ins');
+        const insType = resolveBatchType('ins');
+        const tkType = resolveBatchType('tk');
+        const insCost = getEstimatedCostLabel(insType, cfg);
+        const tkCost = getEstimatedCostLabel(tkType, cfg);
 
         if (balanceEl) balanceEl.innerText = balance === null ? '--' : formatMoney(balance, 2);
-        if (costEl) costEl.innerText = getEstimatedCostLabel(type, cfg);
+        if (costEl) costEl.innerText = `INS：${insCost}\nTK：${tkCost}`;
     }
 
     async function loginFensi() {
@@ -1190,10 +1317,11 @@
                 if (balance !== null) saveAccountBalance(balance);
                 setConfigDetailsOpen(false);
                 refreshGoodsPriceForType(getSelectedInsProjectType(), false);
+                refreshGoodsPriceForType(getSelectedTkProjectType(), false);
             } else if (data && Number(data.code) === 100) {
                 clearFensiAuthToken();
                 clearAccountBalance();
-                setConfigDetailsOpen(true);
+                if (showResult) setConfigDetailsOpen(true);
             }
 
             if (showResult || ok) {
@@ -1253,24 +1381,65 @@
             };
         }
 
+        if (type === 'tkLike') {
+            return {
+                goodsId: 'tkLikeGoodsId',
+                min: 'tkLikeRandomMinNum',
+                max: 'tkLikeRandomMaxNum',
+                base: 'tkLikeOrderBaseNum'
+            };
+        }
+
+        if (type === 'tk') {
+            return {
+                goodsId: 'tkGoodsId',
+                min: 'tkRandomMinNum',
+                max: 'tkRandomMaxNum',
+                base: 'tkOrderBaseNum'
+            };
+        }
+
         return null;
     }
 
-    function saveVisibleInsProjectConfig(cfg, type) {
+    function getProjectInputIds(type) {
+        if (type === 'tk' || type === 'tkLike') {
+            return {
+                tid: 'tkTid',
+                min: 'tkRandomMinNum',
+                max: 'tkRandomMaxNum',
+                base: 'tkOrderBaseNum'
+            };
+        }
+
+        return {
+            tid: 'insTid',
+            min: 'randomMinNum',
+            max: 'randomMaxNum',
+            base: 'orderBaseNum'
+        };
+    }
+
+    function saveVisibleProjectConfig(cfg, type) {
         const keys = getInsProjectConfigKeys(type);
         if (!keys) return cfg;
 
-        const insTid = document.getElementById('insTid');
-        const minNum = document.getElementById('randomMinNum');
-        const maxNum = document.getElementById('randomMaxNum');
-        const baseNum = document.getElementById('orderBaseNum');
+        const ids = getProjectInputIds(type);
+        const tid = document.getElementById(ids.tid);
+        const minNum = document.getElementById(ids.min);
+        const maxNum = document.getElementById(ids.max);
+        const baseNum = document.getElementById(ids.base);
 
-        if (insTid && insTid.value.trim()) cfg[keys.goodsId] = insTid.value.trim();
+        if (tid && tid.value.trim()) cfg[keys.goodsId] = tid.value.trim();
         if (minNum && minNum.value.trim()) cfg[keys.min] = minNum.value.trim();
         if (maxNum && maxNum.value.trim()) cfg[keys.max] = maxNum.value.trim();
         if (baseNum && baseNum.value.trim()) cfg[keys.base] = baseNum.value.trim();
 
         return cfg;
+    }
+
+    function saveVisibleInsProjectConfig(cfg, type) {
+        return saveVisibleProjectConfig(cfg, type);
     }
 
     function getInsProjectTemplate(type, cfg) {
@@ -1306,8 +1475,15 @@
         return el && PROJECTS[el.value] ? el.value : 'ins';
     }
 
+    function getSelectedTkProjectType() {
+        const el = document.getElementById('selectedTkProject');
+        return el && PROJECTS[el.value] ? el.value : 'tk';
+    }
+
     function resolveBatchType(type) {
-        return type === 'ins' ? getSelectedInsProjectType() : type;
+        if (type === 'ins') return getSelectedInsProjectType();
+        if (type === 'tk') return getSelectedTkProjectType();
+        return type;
     }
 
     function getTypeLabel(type) {
@@ -1318,7 +1494,12 @@
         return type === 'ins' || type === 'insLike';
     }
 
+    function isTkRecordType(type) {
+        return type === 'tk' || type === 'tkLike';
+    }
+
     function getRecordLabel(type) {
+        if (isTkRecordType(type)) return 'TK';
         return isInsRecordType(type) ? 'INS' : getTypeLabel(type);
     }
 
@@ -1393,6 +1574,61 @@
         refreshGoodsPriceForType(type, false);
     }
 
+    function syncTkProjectTemplate(showResult) {
+        const type = getSelectedTkProjectType();
+        const project = getProject(type);
+        const cfg = getApiConfig();
+        const oldType = currentTkProjectType || type;
+        const input = document.getElementById('tkVal');
+        const goodsId = document.getElementById('goodsId');
+        const tkTid = document.getElementById('tkTid');
+        const minNum = document.getElementById('tkRandomMinNum');
+        const maxNum = document.getElementById('tkRandomMaxNum');
+        const baseNum = document.getElementById('tkOrderBaseNum');
+        const linkKey = document.getElementById('buyParamKey');
+
+        if (oldType !== type) {
+            saveVisibleProjectConfig(cfg, oldType);
+        }
+
+        const template = getInsProjectTemplate(type, cfg);
+        const projectId = template.goodsId;
+        currentTkProjectType = type;
+
+        if (input) input.placeholder = type === 'tkLike' ? 'tk点赞输入链接' : 'tk播放输入链接';
+        if (goodsId) goodsId.value = projectId || project.goodsId || goodsId.value;
+        if (tkTid) tkTid.value = projectId || project.goodsId || tkTid.value;
+        if (minNum) minNum.value = template.randomMinNum || minNum.value;
+        if (maxNum) maxNum.value = template.randomMaxNum || maxNum.value;
+        if (baseNum) baseNum.value = template.orderBaseNum || baseNum.value;
+        if (linkKey) linkKey.value = template.buyParamKey || linkKey.value;
+
+        cfg.selectedTkProject = type;
+        cfg.goodsId = projectId || project.goodsId || cfg.goodsId;
+        saveVisibleProjectConfig(cfg, type);
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        renderAll();
+        refreshGoodsPriceForType(type, false);
+
+        if (showResult) {
+            setActionStatus(`已切换到${project.label}：项目ID ${cfg.goodsId}，数量 ${template.randomMinNum}-${template.randomMaxNum}，基数 ${template.orderBaseNum}`, 'ok');
+        }
+    }
+
+    function rememberCurrentTkTemplate() {
+        const type = getSelectedTkProjectType();
+        const cfg = getApiConfig();
+        saveVisibleProjectConfig(cfg, type);
+        cfg.selectedTkProject = type;
+        cfg.goodsId = getProjectGoodsId(type, cfg) || cfg.goodsId;
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+
+        const goodsId = document.getElementById('goodsId');
+        if (goodsId) goodsId.value = cfg.goodsId || '';
+        updateAccountSummary();
+        refreshGoodsPriceForType(type, false);
+    }
+
     function getDate() {
         const d = new Date();
         return `${d.getMonth() + 1}.${d.getDate()}`;
@@ -1437,21 +1673,112 @@
         input.value = '';
     }
 
-    async function fetchLatestInsVideo() {
-        const input = document.getElementById('insProfileVal');
+    function getSavedAccounts() {
+        try {
+            const data = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY) || '{}');
+            return {
+                ins: Array.isArray(data.ins) ? data.ins : [],
+                tk: Array.isArray(data.tk) ? data.tk : []
+            };
+        } catch (e) {
+            localStorage.removeItem(ACCOUNT_STORAGE_KEY);
+            return { ins: [], tk: [] };
+        }
+    }
+
+    function saveSavedAccounts(data) {
+        localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({
+            ins: Array.isArray(data.ins) ? data.ins.slice(0, 20) : [],
+            tk: Array.isArray(data.tk) ? data.tk.slice(0, 20) : []
+        }));
+    }
+
+    function normalizeAccountValue(platform, raw) {
+        let value = String(raw || '').trim();
+        if (!value) return '';
+
+        try {
+            if (/^https?:\/\//i.test(value)) {
+                const parsed = new URL(value);
+                const parts = parsed.pathname.split('/').filter(Boolean);
+                if (platform === 'tk') {
+                    value = (parts.find(part => part.startsWith('@')) || parts[0] || '').replace(/^@+/, '');
+                } else {
+                    value = parts[0] || value;
+                }
+            }
+        } catch (e) {}
+
+        return value.replace(/^@+/, '').replace(/\/+$/, '').trim();
+    }
+
+    function saveAccountFromInput(platform) {
+        const input = document.getElementById(platform === 'tk' ? 'tkProfileVal' : 'insProfileVal');
+        const value = normalizeAccountValue(platform, input ? input.value : '');
+        if (!value) {
+            showToast(platform === 'tk' ? '请输入TK账号' : '请输入INS账号');
+            return;
+        }
+
+        const data = getSavedAccounts();
+        const list = data[platform] || [];
+        const next = [value].concat(list.filter(item => item !== value)).slice(0, 20);
+        data[platform] = next;
+        saveSavedAccounts(data);
+        renderSavedAccounts();
+        showToast('账号已保存');
+    }
+
+    function fillSavedAccount(platform, idx) {
+        const data = getSavedAccounts();
+        const value = (data[platform] || [])[idx] || '';
+        const input = document.getElementById(platform === 'tk' ? 'tkProfileVal' : 'insProfileVal');
+        if (input && value) input.value = value;
+        showToast('账号已填入');
+    }
+
+    function deleteSavedAccount(event, platform, idx) {
+        if (event) event.stopPropagation();
+        const data = getSavedAccounts();
+        data[platform] = (data[platform] || []).filter((_, itemIdx) => itemIdx !== idx);
+        saveSavedAccounts(data);
+        renderSavedAccounts();
+        showToast('账号已删除');
+    }
+
+    function renderSavedAccounts() {
+        const data = getSavedAccounts();
+        ['ins', 'tk'].forEach(platform => {
+            const box = document.getElementById(platform === 'tk' ? 'tkAccountList' : 'insAccountList');
+            if (!box) return;
+            const rows = data[platform] || [];
+            box.innerHTML = rows.map((value, idx) => `
+                <span class="account-chip" onclick="fillSavedAccount('${platform}', ${idx})">
+                    <span>${escapeHtml(value)}</span>
+                    <button type="button" onclick="deleteSavedAccount(event, '${platform}', ${idx})">×</button>
+                </span>
+            `).join('');
+        });
+    }
+
+    async function fetchLatestVideo(platform) {
+        const isTk = platform === 'tk';
+        const input = document.getElementById(isTk ? 'tkProfileVal' : 'insProfileVal');
         const raw = input ? input.value.trim() : '';
+        const label = isTk ? 'TK' : 'INS';
 
         if (!raw) {
-            showToast('请输入INS主页或账号');
-            setActionStatus('请输入INS主页链接或账号名后再提取。', 'fail');
+            showToast(`请输入${label}主页或账号`);
+            setActionStatus(`请输入${label}主页链接或账号名后再提取。`, 'fail');
             return;
         }
 
         const cfg = saveApiConfigFromPage(false);
-        setActionStatus('正在提取INS最新视频链接...', 'warn');
+        const endpoint = isTk ? '/api/tiktok/latest' : '/api/instagram/latest';
+        setActionStatus(`正在提取${label}最新视频链接...`, 'warn');
 
         try {
-            const res = await fetch(buildProxyUrl(cfg, '/api/instagram/latest'), {
+            const res = await fetch(buildProxyUrl(cfg, endpoint), {
                 method: 'POST',
                 headers: getProxyHeaders({ 'Content-Type': 'application/json;charset=UTF-8' }),
                 body: JSON.stringify({ profile: raw })
@@ -1464,10 +1791,11 @@
             const msg = (data && (data.message || data.msg)) || result.text || '提取接口已返回';
 
             if (res.ok && Number(data.code) === 0 && link) {
-                addLinkRecord('ins', link, {
+                addLinkRecord(isTk ? 'tk' : 'ins', link, {
                     coverUrl,
                     sourceUsername: info.username || ''
                 });
+                saveAccountFromInput(isTk ? 'tk' : 'ins');
                 if (input) input.value = '';
                 setActionStatus(`${msg}：${link}`, 'ok');
                 return;
@@ -1476,10 +1804,14 @@
             showToast('提取失败');
             setActionStatus('提取失败：' + msg, 'fail');
         } catch (e) {
-            const msg = '提取失败：转发服务不可用或 Instagram 临时拦截';
+            const msg = `提取失败：转发服务不可用或 ${isTk ? 'TikTok' : 'Instagram'} 临时拦截`;
             showToast(msg);
-            setActionStatus(msg + '。也可以先手动复制视频链接到INS输入框。', 'fail');
+            setActionStatus(msg + `。也可以先手动复制视频链接到${label}输入框。`, 'fail');
         }
+    }
+
+    function fetchLatestInsVideo() {
+        return fetchLatestVideo('ins');
     }
 
     function isFensiBuyMode(cfg) {
@@ -1766,9 +2098,8 @@
 
     async function submitBatchByType(type) {
         const purchaseType = resolveBatchType(type);
-        const recordType = type === 'ins' ? 'ins' : purchaseType;
         const typeLabel = getTypeLabel(purchaseType);
-        const inputLabel = type === 'ins' ? 'INS' : typeLabel;
+        const inputLabel = type === 'ins' ? 'INS' : 'TK';
         setActionStatus(`正在准备批量购买${typeLabel}...`, 'warn');
         saveApiConfig();
 
@@ -1787,7 +2118,7 @@
             .map((item, idx) => ({ item, idx }))
             .filter(row => {
                 if (!row.item || !row.item.content) return false;
-                return type === 'ins' ? isInsRecordType(row.item.type) : row.item.type === recordType;
+                return type === 'ins' ? isInsRecordType(row.item.type) : isTkRecordType(row.item.type);
             });
         let targets = allRows.filter(row => getPurchaseInfo(row.item, purchaseType).apiStatus !== 'success');
         let isResubmit = false;
@@ -1980,7 +2311,7 @@
         list.forEach((item, idx) => {
             const safeDate = escapeHtml(item.date || '');
             const safeType = escapeHtml(getRecordLabel(item.type));
-            const purchaseType = isInsRecordType(item.type) ? getSelectedInsProjectType() : item.type;
+            const purchaseType = getRecordPurchaseType(item);
             const info = getPurchaseInfo(item, purchaseType);
             const status = getStatusText(info.apiStatus);
             const order = info.orderId ? `<div style="font-size:11px;color:#888;margin-top:3px;">订单：${escapeHtml(info.orderId)}</div>` : '';
@@ -2005,7 +2336,7 @@
 
             if (isInsRecordType(item.type)) {
                 insHtml += itemHtml;
-            } else if (item.type === 'tk') {
+            } else if (isTkRecordType(item.type)) {
                 tkHtml += itemHtml;
             }
         });
@@ -2013,6 +2344,13 @@
         document.getElementById('insList').innerHTML = insHtml;
         document.getElementById('tkList').innerHTML = tkHtml;
         updateAccountSummary();
+    }
+
+    function getRecordPurchaseType(item) {
+        if (!item) return 'ins';
+        if (isInsRecordType(item.type)) return getSelectedInsProjectType();
+        if (isTkRecordType(item.type)) return getSelectedTkProjectType();
+        return item.type;
     }
 
     function getStatusText(status) {
@@ -2064,10 +2402,10 @@
     function setPurchaseResult(item, purchaseType, fields) {
         if (!item) return;
 
-        if (purchaseType === 'ins' || purchaseType === 'insLike' || isInsRecordType(item.type)) {
+        if (isInsRecordType(purchaseType) || isTkRecordType(purchaseType) || isInsRecordType(item.type) || isTkRecordType(item.type)) {
             if (!item.apiByProject) {
                 item.apiByProject = {};
-                if (isInsRecordType(item.type) && item.apiStatus && item.apiStatus !== 'local') {
+                if ((isInsRecordType(item.type) || isTkRecordType(item.type)) && item.apiStatus && item.apiStatus !== 'local') {
                     item.apiByProject[item.type] = {
                         apiStatus: item.apiStatus || 'local',
                         apiMsg: item.apiMsg || '',
@@ -2095,7 +2433,7 @@
         }
 
         currentEditIndex = idx;
-        const purchaseType = isInsRecordType(list[idx].type) ? getSelectedInsProjectType() : list[idx].type;
+        const purchaseType = getRecordPurchaseType(list[idx]);
         const info = getPurchaseInfo(list[idx], purchaseType);
         document.getElementById('editDate').value = list[idx].date || '';
         document.getElementById('editContent').value = list[idx].content || '';
@@ -2169,7 +2507,7 @@
         saveList(list);
         closeModal();
         renderAll();
-        await submitItemByIndex(idx, isInsRecordType(list[idx].type) ? getSelectedInsProjectType() : list[idx].type);
+        await submitItemByIndex(idx, getRecordPurchaseType(list[idx]));
     }
 
     function delCurrentItem() {
@@ -2219,7 +2557,7 @@
     }
 
     function copyTkData() {
-        const text = getList().filter(i => i.type === 'tk').map(i => i.content).join('\n');
+        const text = getList().filter(i => isTkRecordType(i.type)).map(i => i.content).join('\n');
         copy(text);
     }
 
