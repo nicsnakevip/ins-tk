@@ -139,6 +139,11 @@
             border-color: #1677ff;
         }
 
+        .api-card input[readonly] {
+            background: #f6f7f9;
+            color: #666;
+        }
+
         .api-help {
             margin-top: 8px;
             font-size: 12px;
@@ -655,67 +660,33 @@
 
         <div class="api-grid">
             <div>
-                <div class="field-label">INS项目</div>
-                <select id="selectedInsProject" onchange="syncInsProjectTemplate(true)">
-                    <option value="ins">播放</option>
-                    <option value="insLike">点赞</option>
+                <div class="field-label">项目</div>
+                <select id="selectedProject" onchange="syncUnifiedProjectTemplate(true)">
+                    <option value="ins">INS / 播放</option>
+                    <option value="insLike">INS / 点赞</option>
+                    <option value="tk">TK / 播放</option>
+                    <option value="tkLike">TK / 点赞</option>
                 </select>
             </div>
 
             <div>
-                <div class="field-label">INS项目ID / tid</div>
-                <input type="text" id="insTid" placeholder="INS业务ID" onchange="rememberCurrentInsTemplate()">
+                <div class="field-label">项目ID</div>
+                <input type="text" id="projectGoodsIdDisplay" readonly>
             </div>
 
             <div>
-                <div class="field-label">INS随机最小数量</div>
-                <input type="number" id="randomMinNum" min="1" step="1" placeholder="50" onchange="rememberCurrentInsTemplate()">
+                <div class="field-label">随机最小数量</div>
+                <input type="number" id="projectRandomMinNum" min="1" step="1" placeholder="50" onchange="rememberCurrentUnifiedTemplate()">
             </div>
 
             <div>
-                <div class="field-label">INS随机最大数量</div>
-                <input type="number" id="randomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
+                <div class="field-label">随机最大数量</div>
+                <input type="number" id="projectRandomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentUnifiedTemplate()">
             </div>
 
             <div>
-                <div class="field-label">INS下单基数</div>
-                <input type="number" id="orderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentInsTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">TK项目</div>
-                <select id="selectedTkProject" onchange="syncTkProjectTemplate(true)">
-                    <option value="tk">播放</option>
-                    <option value="tkLike">点赞</option>
-                </select>
-            </div>
-
-            <div>
-                <div class="field-label">TK项目ID / tid</div>
-                <input type="text" id="tkTid" placeholder="TK业务ID" onchange="rememberCurrentTkTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">TK随机最小数量</div>
-                <input type="number" id="tkRandomMinNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">TK随机最大数量</div>
-                <input type="number" id="tkRandomMaxNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">TK下单基数</div>
-                <input type="number" id="tkOrderBaseNum" min="1" step="1" placeholder="100" onchange="rememberCurrentTkTemplate()">
-            </div>
-
-            <div>
-                <div class="field-label">请求方式</div>
-                <select id="apiMethod">
-                    <option value="POST">POST</option>
-                    <option value="GET">GET</option>
-                </select>
+                <div class="field-label">下单基数</div>
+                <input type="text" id="projectBaseDisplay" readonly>
             </div>
         </div>
     </div>
@@ -806,6 +777,7 @@
         appId: '',
         appSecret: '',
         apiKey: '',
+        selectedProject: 'ins',
         selectedInsProject: 'ins',
         selectedTkProject: 'tk',
         goodsId: '3633',
@@ -895,16 +867,17 @@
     };
 
     let currentEditIndex = -1;
+    let currentProjectType = 'ins';
     let currentInsProjectType = 'ins';
     let currentTkProjectType = 'tk';
 
     window.onload = function () {
         loadApiConfigToPage();
         setConfigDetailsOpen(false);
+        currentProjectType = getSelectedUnifiedProjectType();
         currentInsProjectType = getSelectedInsProjectType();
         currentTkProjectType = getSelectedTkProjectType();
-        syncInsProjectTemplate(false);
-        syncTkProjectTemplate(false);
+        syncUnifiedProjectTemplate(false);
         clearOverdueRecord();
         renderSavedAccounts();
         renderAll();
@@ -964,6 +937,8 @@
             const el = document.getElementById(key);
             if (el) el.value = c[key] || '';
         });
+        const projectEl = document.getElementById('selectedProject');
+        if (projectEl) projectEl.value = PROJECTS[c.selectedProject] ? c.selectedProject : (c.selectedInsProject || 'ins');
     }
 
     function readApiConfigFromPage() {
@@ -973,12 +948,11 @@
             if (el) c[key] = el.value.trim();
         });
 
-        const selectedType = getSelectedInsProjectType();
-        c.selectedInsProject = selectedType;
-        saveVisibleInsProjectConfig(c, selectedType);
-        const selectedTkType = getSelectedTkProjectType();
-        c.selectedTkProject = selectedTkType;
-        saveVisibleProjectConfig(c, selectedTkType);
+        const selectedType = getSelectedUnifiedProjectType();
+        c.selectedProject = selectedType;
+        if (isInsRecordType(selectedType)) c.selectedInsProject = selectedType;
+        if (isTkRecordType(selectedType)) c.selectedTkProject = selectedType;
+        saveVisibleProjectConfig(c, selectedType);
         c.goodsId = getProjectGoodsId(selectedType, c) || c.goodsId;
         return c;
     }
@@ -986,8 +960,7 @@
     function saveApiConfig() {
         saveApiConfigFromPage(false);
         loadApiConfigToPage();
-        syncInsProjectTemplate(false);
-        syncTkProjectTemplate(false);
+        syncUnifiedProjectTemplate(false);
         showToast('API配置已保存');
         setActionStatus('API配置已保存', 'ok');
     }
@@ -1007,10 +980,10 @@
         if (!confirm('确定重置API配置？')) return;
         localStorage.removeItem(API_CONFIG_KEY);
         loadApiConfigToPage();
+        currentProjectType = getSelectedUnifiedProjectType();
         currentInsProjectType = getSelectedInsProjectType();
         currentTkProjectType = getSelectedTkProjectType();
-        syncInsProjectTemplate(false);
-        syncTkProjectTemplate(false);
+        syncUnifiedProjectTemplate(false);
         showToast('已重置');
     }
 
@@ -1409,6 +1382,16 @@
     }
 
     function getProjectInputIds(type) {
+        const unified = document.getElementById('selectedProject');
+        if (unified && unified.value === type) {
+            return {
+                tid: 'projectGoodsIdDisplay',
+                min: 'projectRandomMinNum',
+                max: 'projectRandomMaxNum',
+                base: 'projectBaseDisplay'
+            };
+        }
+
         if (type === 'tk' || type === 'tkLike') {
             return {
                 tid: 'tkTid',
@@ -1476,14 +1459,39 @@
         return getInsProjectTemplate(type, cfg).goodsId;
     }
 
+    function getStoredProjectType(key, fallback) {
+        try {
+            const raw = localStorage.getItem(API_CONFIG_KEY);
+            const saved = raw ? JSON.parse(raw) : {};
+            return PROJECTS[saved[key]] ? saved[key] : fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    function getSelectedUnifiedProjectType() {
+        const el = document.getElementById('selectedProject');
+        return el && PROJECTS[el.value] ? el.value : getStoredProjectType('selectedProject', 'ins');
+    }
+
     function getSelectedInsProjectType() {
         const el = document.getElementById('selectedInsProject');
-        return el && PROJECTS[el.value] ? el.value : 'ins';
+        if (el && PROJECTS[el.value]) return el.value;
+
+        const unified = document.getElementById('selectedProject');
+        if (unified && isInsRecordType(unified.value)) return unified.value;
+
+        return getStoredProjectType('selectedInsProject', 'ins');
     }
 
     function getSelectedTkProjectType() {
         const el = document.getElementById('selectedTkProject');
-        return el && PROJECTS[el.value] ? el.value : 'tk';
+        if (el && PROJECTS[el.value]) return el.value;
+
+        const unified = document.getElementById('selectedProject');
+        if (unified && isTkRecordType(unified.value)) return unified.value;
+
+        return getStoredProjectType('selectedTkProject', 'tk');
     }
 
     function resolveBatchType(type) {
@@ -1523,6 +1531,99 @@
         }
 
         return next;
+    }
+
+    function saveUnifiedVisibleProjectConfig(cfg, type) {
+        const keys = getInsProjectConfigKeys(type);
+        if (!keys) return cfg;
+
+        const minNum = document.getElementById('projectRandomMinNum');
+        const maxNum = document.getElementById('projectRandomMaxNum');
+        const template = getInsProjectTemplate(type, cfg);
+
+        cfg[keys.goodsId] = template.goodsId || getProject(type).goodsId || cfg[keys.goodsId] || '';
+        cfg[keys.base] = template.orderBaseNum || getProject(type).orderBaseNum || cfg[keys.base] || '100';
+        if (minNum && minNum.value.trim()) cfg[keys.min] = minNum.value.trim();
+        if (maxNum && maxNum.value.trim()) cfg[keys.max] = maxNum.value.trim();
+
+        return cfg;
+    }
+
+    function updateProjectDisplay(type, template) {
+        const project = getProject(type);
+        const projectId = document.getElementById('projectGoodsIdDisplay');
+        const minNum = document.getElementById('projectRandomMinNum');
+        const maxNum = document.getElementById('projectRandomMaxNum');
+        const baseNum = document.getElementById('projectBaseDisplay');
+        const goodsId = document.getElementById('goodsId');
+        const linkKey = document.getElementById('buyParamKey');
+
+        if (projectId) projectId.value = template.goodsId || project.goodsId || '';
+        if (minNum) minNum.value = template.randomMinNum || project.randomMinNum || '';
+        if (maxNum) maxNum.value = template.randomMaxNum || project.randomMaxNum || '';
+        if (baseNum) baseNum.value = template.orderBaseNum || project.orderBaseNum || '';
+        if (goodsId) goodsId.value = template.goodsId || project.goodsId || '';
+        if (linkKey) linkKey.value = template.buyParamKey || project.buyParamKey || linkKey.value;
+    }
+
+    function updateProjectPlaceholders(type) {
+        const insInput = document.getElementById('insVal');
+        const tkInput = document.getElementById('tkVal');
+
+        if (type === 'ins' && insInput) insInput.placeholder = 'ins播放输入链接';
+        if (type === 'insLike' && insInput) insInput.placeholder = 'ins点赞输入链接';
+        if (type === 'tk' && tkInput) tkInput.placeholder = 'tk播放输入链接';
+        if (type === 'tkLike' && tkInput) tkInput.placeholder = 'tk点赞输入链接';
+    }
+
+    function syncUnifiedProjectTemplate(showResult) {
+        const type = getSelectedUnifiedProjectType();
+        const project = getProject(type);
+        const cfg = getApiConfig();
+        const oldType = currentProjectType || type;
+
+        if (oldType !== type) {
+            saveUnifiedVisibleProjectConfig(cfg, oldType);
+        }
+
+        const template = getInsProjectTemplate(type, cfg);
+        currentProjectType = type;
+        cfg.selectedProject = type;
+
+        if (isInsRecordType(type)) {
+            currentInsProjectType = type;
+            cfg.selectedInsProject = type;
+        }
+        if (isTkRecordType(type)) {
+            currentTkProjectType = type;
+            cfg.selectedTkProject = type;
+        }
+
+        updateProjectDisplay(type, template);
+        updateProjectPlaceholders(type);
+        saveUnifiedVisibleProjectConfig(cfg, type);
+        cfg.goodsId = getProjectGoodsId(type, cfg) || cfg.goodsId;
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        renderAll();
+        refreshGoodsPriceForType(type, false);
+
+        if (showResult) {
+            setActionStatus(`已切换到${project.label}：项目ID ${cfg.goodsId}，数量 ${template.randomMinNum}-${template.randomMaxNum}，基数 ${template.orderBaseNum}`, 'ok');
+        }
+    }
+
+    function rememberCurrentUnifiedTemplate() {
+        const type = getSelectedUnifiedProjectType();
+        const cfg = getApiConfig();
+        saveUnifiedVisibleProjectConfig(cfg, type);
+        cfg.selectedProject = type;
+        if (isInsRecordType(type)) cfg.selectedInsProject = type;
+        if (isTkRecordType(type)) cfg.selectedTkProject = type;
+        cfg.goodsId = getProjectGoodsId(type, cfg) || cfg.goodsId;
+        localStorage.setItem(API_CONFIG_KEY, JSON.stringify(cfg));
+        updateAccountSummary();
+        refreshGoodsPriceForType(type, false);
+        renderAll();
     }
 
     function syncInsProjectTemplate(showResult) {
